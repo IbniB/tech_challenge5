@@ -1,80 +1,80 @@
-# Tech Challenge (Fases 04 e 05) - MLOps Analytics para Tesouraria e Mercado Financeiro
+# Tech Challenge (Fase 05) - MLOps Analytics para Tesouraria e Mercado Financeiro
 
-> Este repositório concentra a submissão final do Tech Challenge englobando as entregas de Deep Learning para Séries Temporais (Fase 04) e as exigências maduras de Engenharia e Arquitetura MLOps de um Datathon (Fase 05).
-
----
-
-## 🎯 Por Que Esse Projeto Existe? (Problema de Negócio Real)
-
-Em mesas de operações e tesourarias financeiras, modelos de predição de preços de ações são vastamente utilizados para detecção de tendências de mercado, otimização de portfólios, e balanceamento de risco corporativo. No entanto, o **maior gargalo de negócio hoje não é a acurácia do modelo**, mas sim a **degradação silenciosa em produção**.
-
-Tentar basear decisões em um modelo de Deep Learning obsoleto, rodando sobre Notebooks que quebram sem alertas, ou recebendo features inválidas, leva instituições reguladas à quebra de confiança e pesados prejuízos, penalizados sob a rubrica da Governança MLOps apontada na Fase 05.
-
-### ✔ Nossa Proposta de Solução:
-Ao invés de criarmos apenas a Rede Neural, estamos empacotando-a em uma plataforma ponta a ponta resistente a falhas, que conta com:
-- Predição de séries temporais financeiras de alta eficácia utilizando redes **LSTM** com arquitetura corporativa.
-- Integração natural Language (LLM) que consome nossos próprios modelos via um **Agente ReAct**, oferecendo contexto e respostas financeiras.
-- Visibilidade contra descalibramento através de *Drift Detection*.
+Este repositório concentra a entrega final do Tech Challenge, unindo o desenvolvimento de algoritmos de Deep Learning para previsão de Séries Temporais (Fase 04) com as práticas de Engenharia e Arquitetura MLOps exigidas na Fase 05.
 
 ---
 
-## 🏗 Explicativo de Escolhas e Motivações Arquiteturais
+## O Problema de Negócio
 
-Para atender perfeitamente às rigidades das instituições bancárias e não cometer os gaps críticos identificados na indústria, adotamos as seguintes trilhas arquiteturais. Todas essas ações devem ser validadas perante código de banca:
+Em mesas de operações e tesourarias, modelos de análise técnica e predição de preços de ações são muito comuns. Porém, o maior desafio prático para escalar isso não é a precisão matemática do modelo, mas sim o seu ciclo de vida. Modelos não monitorados sofrem degradação rápida devido a mudanças econômicas (Concept Drift) ou falhas na extração de dados (Data Drift).
 
-### 1. DVC (Data Version Control) ao Invés de Storage Manual do Git
-- **Ação**: Implementamos uma `data/` branch mantida estritamente via `dvc.yaml` versionado no projeto. 
-- **Justificativa de Negócio**: Não podemos armazenar bases e dumps de *yfinance* massivos do mercado no repositório de códigos. O DVC abstrai essas massas, impedindo poluição do repositório, garantindo reprodutibilidade em 100% para novos desenvolvedores, e solucionando o **Gap 08** de "Ambientes de Desenvolvimento Sem Dados".
+Se um sistema tomar decisões automatizadas baseado em uma rede neural descalibrada, os prejuízos para instituições financeiras sobem exponencialmente.
 
-### 2. Isolar Notebooks e Adotar CI/CD Automatizado  
-- **Ação**: Todo o preprocessamento dos dados financeiros e loop de treino que originalmente reside em EDA (`notebooks/01_eda.ipynb`) é transposto integralmente para `src/features/` e testado via *PyTest*. Protegemos tudo contra _pushs_ destrutivos usando *GitHub Actions*.
-- **Justificativa de Negócio**: Eliminar o famigerado **Gap 02 (SPOF em Notebooks)**. Arquiteturas que confiam em cadernos interativos são caóticas e não rastreáveis. Usamos CLI e `Makefiles` para rodar os mesmos steps declarativamente. Adicionalmente, resolve o **Gap 04 (Código sem testes)** provendo *Quality Gates* confiáveis.
-
-### 3. Evitando a "Caixa Preta": MLflow, Prometheus e Evidently
-- **Ação**: Adotar MLFlow rigoroso com métricas financeiras (RMSE, MAE e MAPE) e rastreamento constante. Toda a inferência em produção passará por loggers via Prometheus que analisam a degradação temporal *Drift*.
-- **Justificativa de Negócio**: Elimina os **Gaps 01 e 06 (Monitoramento Zero e Concept Drift)**. Nosso modelo rastreará a variável (PSI > 0.1 como warning) das variações históricas da ação, impedindo a degradação silenciosa na previsão do ativo pela rede LSTM.
-
-### 4. Inteligência Generativa Acoplada (RAG e ReAct Agent)
-- **Ação**: Utilizar Langchain e FastApi para integrar agentes que usem o conhecimento corporativo (Tools) acoplados ao projeto.
-- **Justificativa de Negócio**: Atende às diretrizes da Fase 05 fornecendo uma interface de Agente Inteligente capaz de justificar tendências frente as políticas macroeconômicas. Adiciona segurança em cima do dado (Guardrails estritos) lidando com RAGs corporativo limitados a informações provadas sem alucinações.
+### Nossa Solução Aplicada
+Em vez de focar apenas no desenvolvimento isolado da Rede Neural, construímos e refatoramos uma infraestrutura conectada, que conta com:
+- Predição técnica de séries temporais usando redes de memória de longo prazo (LSTM) sobre a fundação do PyTorch.
+- API construída em FastAPI encapsulando os pesos resultantes do modelo.
+- Acoplamento do modelo a um agente generativo (ReAct / LangChain) que responde perguntas financeiras validando os dados na web e cruzando com as políticas de risco da corretora.
+- Monitoramento contínuo usando MLflow e Prometheus para auditoria.
 
 ---
 
-## Estrutura Inicial 
+## Decisões de Arquitetura MLOps
 
-O projeto está estruturado nos moldes preconizados seguindo as melhores práticas do Datathon de Governança. Para rodar qualquer esteira, consulte a pasta correspondente e interaja através dos comandos contidos no `Makefile`.
+Para suprir as exigências da banca da Fase 05, tomamos as seguintes ações para sanar gaps de mercado:
+
+### 1. Versionamento Base com DVC
+Não subimos as extrações locais e massivas diretamente no Git. Dados brutos e tratamentos intermediários foram abstraídos via DVC, melhorando a organização do repositório e permitindo que qualquer membro novo clone o projeto e retome as modelagens a partir de "Data states" rastreáveis.
+
+### 2. CI/CD Automatizado e Isolamento de Codificação
+Mudamos a cultura do exploratório padrão. Processamentos de dados rodando em Notebooks descartáveis dão lugar para rotinas de extração corporativas na raiz da pasta `src/`. Esses scripts possuem testes de integração via Pytest e auditoria de nulos usando Data Contracts (Pandera). Isso ameniza o risco de códigos mortos.
+
+### 3. Rastreamento (MLflow) e Observabilidade (Prometheus)
+A etapa de Treinamento da LSTM ocorre injetando o MLflow no código. Ele salvará cada hiperparâmetro (como tamanho de janelas) e o artefato de modelo gerado no final do processo, mantendo registro claro de autoria de cada versão. Na ponta da inferência, integramos de cara um endpoint Promotheus consumido assincronamente via Docker para entender picos de uso e flutuações anormais e bruscas no preço das ações requisitadas.
+
+### 4. Inteligência RAG e Agentes Generativos
+Aplicamos bibliotecas GenAI para dar utilidade para as inferências da predição. O Agente cruza três "Tools" do próprio sistema: Busca a última cotação legítima na nuvem via yfinance, solicita predição interna do nosso modelo neural, e cruza o output sob checagens com uma base RAG onde subimos as diretrizes corporativas restritas da CVM. Tudo isso avaliado com Ragas para comprovar falta de alucinação sintética.
 
 ---
 
-## 🚀 Como Iniciar Seu Ambiente MLOps e Testar o Sistema
+## Estrutura Inicial e Como Executar Deste Ambiente
 
-Nós migramos da abordagem `pip install global` indiscriminada para uma gestão profissional via ambientes virtuais. A plataforma orquestradora escolhida para a Fase A é o **Poetry**. 
+O projeto utiliza o Poetry como core de ambiente.
 
-### 1. Formando a Bolha de Segurança
-Na raiz do diretório `datathon-grupo-05/`, abra seu terminal local e rode:
+### Primeira Etapa: Instalação e Limpeza 
+Na raiz deste diretório (`datathon-grupo-05/`), isolamos os pacotes criando a bolha nativa:
 ```bash
 poetry install
 ```
-*Isto irá isolar todas as dependências lendo formalmente o `pyproject.toml` sem interferir da sua máquina local.*
 
-### 2. Extraindo o Ativo Preditivo (Petrobras - PETR4)
-Busque da nuvem com nossa malha validada:
+### Segunda Etapa: Pre-processamento e Baseline (Fase A)
+Nós automatizamos as varreduras financeiras e os janelamentos tensores de Deep Learning. Realize o donwload inicial e a higienização unitária usando:
 ```bash
 poetry run python src/features/data_collection.py --ticker PETR4.SA
-```
-Em seguida, lacre no cofre para evitar versionamento de base de dados gigante no git corporativo *(Governança Gap 08)*:
-```bash
 poetry run dvc add data/raw/petr4_sa_raw.csv
-```
 
-### 3. Engine de Transformação Numérica (Janelas LSTM)
-Para converter o simples histórico tabular para a geometria tenso-tridimensional que a sua Rede Neural precisará para ler as memórias de transação:
-```bash
+# Cria os recortes matemáticos sequenciais validando integridade no background
 poetry run python src/features/feature_engineering.py --ticker_id petr4_sa
-```
 
-### 4. Rodando os Testes do Motor (Quality Gate)
-Como provamos de fato que o framework impede falhas silenciosas na hora da leitura do CSV baixado da rede? Rodando o `pytest` blindado pelas regras do MLOps *Pandera*:
-```bash
+# Provando os testes técnicos
 poetry run pytest tests/ -v
 ```
+
+### Terceira Etapa: Base Neutra Temporal (Fase B)
+Com todos os recortes `.npy` criados pelo código acima, basta empurrar os treinos da nossa classe PyTorch para rodarem em background salvando estatísticas automáticas.
+```bash
+poetry run python src/models/train.py
+```
+
+### Quarta Etapa: Inicializando Servidores e Microserviços (Fase C)
+O projeto agora é operado em múltiplos microsserviços blindados. A API do FastAPI roda em volta do Prometheus com o painel do MLflow operando assincronamente.
+```bash
+docker compose up --build
+```
+
+### Última Etapa: Consultando Agentes Humanos ou Autônomos (Fase D)
+Para conversar de forma nativa com a infraestrutura ReAct embutida, você pode girar os scripts agentes desenvolvidos acoplados sobre a OpenAI:
+```bash
+poetry run python src/agent/react_agent.py
+```
+Atenção: Você vai precisar definir a variável do bash chamada `OPENAI_API_KEY` para as inferências Generativas. Os testes de avaliação estatística não dependem deste comando para aprovação local de dependências LLM-as-a-judge.
