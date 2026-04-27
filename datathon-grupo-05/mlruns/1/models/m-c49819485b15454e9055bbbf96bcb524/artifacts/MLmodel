@@ -1,0 +1,23 @@
+artifact_path: file:S:/Sources/MachineLearningEngineering/Pos/TechChallenge5-1/tech_challenge5/datathon-grupo-05/mlruns/1/models/m-c49819485b15454e9055bbbf96bcb524/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.13.4
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.8.0
+    skops_trusted_types: null
+mlflow_version: 3.11.1
+model_id: m-c49819485b15454e9055bbbf96bcb524
+model_size_bytes: 1452
+model_uuid: m-c49819485b15454e9055bbbf96bcb524
+prompts: null
+run_id: 80b94aa7f92b40368094fd4381ad3a3a
+utc_time_created: '2026-04-25 20:38:27.551634'

@@ -1,0 +1,56 @@
+version: '3.8'
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:2.11.0
+    ports:
+      - '5000:5000'
+    command: mlflow server --backend-store-uri sqlite:///mlflow.db --default-artifact-root /mlruns
+    volumes:
+      - ./mlruns:/mlruns
+
+  app:
+    build:
+      context: .
+      dockerfile: src/serving/Dockerfile
+    ports:
+      - '8000:8000'
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_ARTIFACT_PATH: models/model.joblib
+      SERVICE_HOST: 0.0.0.0
+      SERVICE_PORT: '8000'
+    depends_on:
+      - mlflow
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - '3000:3000'
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus_data:
+  grafana_data:

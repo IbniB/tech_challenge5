@@ -1,0 +1,101 @@
+[
+  {
+    "query": "Qual é a performance atual da NVIDIA no mercado de IA?",
+    "expected_answer": "A NVIDIA é líder no mercado de GPUs para IA, com crescimento significativo em data centers e computação acelerada. Suas ações apresentaram alta volatilidade devido à demanda por chips de IA.",
+    "contexts": [
+      "NVIDIA Corporation é uma empresa americana de tecnologia que projeta unidades de processamento gráfico (GPUs) para o mercado de jogos, centros de dados profissionais e veículos autônomos.",
+      "No último ano, as ações da NVDA apresentaram crescimento significativo impulsionado pela demanda por soluções de IA e computação em nuvem.",
+      "A empresa domina o mercado de GPUs para deep learning e IA generativa, com participação de mercado superior a 80% em alguns segmentos."
+    ]
+  },
+  {
+    "query": "Como está o volume de negociação das ações da NVDA?",
+    "expected_answer": "O volume médio diário de negociação da NVDA é alto, refletindo grande interesse institucional e retail. Dias de alta volatilidade geralmente acompanham volumes elevados.",
+    "contexts": [
+      "As ações da NVIDIA têm volume médio diário superior a 50 milhões de ações, indicando alta liquidez.",
+      "Em dias de anúncios importantes ou resultados trimestrais, o volume pode exceder 100 milhões de ações.",
+      "A liquidez elevada facilita entrada e saída de posições, mas também aumenta a volatilidade intradiária."
+    ]
+  },
+  {
+    "query": "Quais fatores influenciam o preço das ações da NVIDIA?",
+    "expected_answer": "Vários fatores influenciam o preço: demanda por GPUs de IA, concorrência com AMD/Intel, ciclos econômicos, lançamentos de produtos e performance financeira da empresa.",
+    "contexts": [
+      "A demanda por GPUs de IA é o principal driver de crescimento da NVIDIA.",
+      "Concorrência no mercado de semicondutores afeta margens e participação de mercado.",
+      "Ciclos econômicos globais impactam investimentos em data centers e infraestrutura de IA."
+    ]
+  },
+  {
+    "query": "Qual foi o retorno anual da NVDA no último ano?",
+    "expected_answer": "A NVDA apresentou retorno anual superior a 150%, impulsionado pelo boom da IA. A volatilidade diária foi significativa, com retornos positivos em cerca de 53% dos dias.",
+    "contexts": [
+      "No período analisado, a NVDA teve retorno total superior a 150%.",
+      "A volatilidade anualizada foi superior a 50%, típica de ações de crescimento.",
+      "Cerca de 53% dos dias apresentaram retornos positivos, indicando tendência de alta."
+    ]
+  },
+  {
+    "query": "Como avaliar o risco de investir em NVDA?",
+    "expected_answer": "O risco pode ser avaliado pelo Sharpe Ratio, Maximum Drawdown e volatilidade histórica. A NVDA apresenta alto risco devido à volatilidade do setor de tecnologia.",
+    "contexts": [
+      "Sharpe Ratio da NVDA indica retorno ajustado ao risco razoável para o perfil de risco.",
+      "Maximum Drawdown histórico mostra perdas máximas de até 20-30% em correções.",
+      "Volatilidade elevada requer horizonte de investimento de médio/longo prazo."
+    ]
+  },
+  {
+    "query": "Quais são os principais concorrentes da NVIDIA?",
+    "expected_answer": "Principais concorrentes incluem AMD, Intel e empresas chinesas como Huawei e Baidu. No segmento de IA, também compete com Google, Microsoft e Amazon em soluções integradas.",
+    "contexts": [
+      "AMD é o principal concorrente em GPUs para jogos e data centers.",
+      "Intel compete no mercado de CPUs e GPUs integradas.",
+      "No ecossistema de IA, NVIDIA compete com soluções proprietárias de big techs."
+    ]
+  },
+  {
+    "query": "Como a NVIDIA se posiciona no mercado de data centers?",
+    "expected_answer": "A NVIDIA domina o mercado de GPUs para data centers, com participação superior a 90% em aceleradores para IA. Seus produtos são essenciais para treinamento de modelos de IA.",
+    "contexts": [
+      "Data centers representam o maior segmento de receita da NVIDIA.",
+      "GPUs A100/H100 são padrão para treinamento de modelos de IA de grande escala.",
+      "A empresa tem contratos estratégicos com todos os principais provedores de nuvem."
+    ]
+  },
+  {
+    "query": "Qual é a estratégia de crescimento da NVIDIA?",
+    "expected_answer": "A estratégia foca em IA, gaming, data centers e automotive. Investimentos em R&D são altos, com foco em software e plataformas além do hardware.",
+    "contexts": [
+      "NVIDIA investe mais de 9 bilhões anualmente em P&D.",
+      "Estratégia inclui expansão para software (CUDA, cuDNN) e plataformas (DGX, EGX).",
+      "Diversificação para automotive e edge computing além do core business."
+    ]
+  },
+  {
+    "query": "Como analisar a saúde financeira da NVIDIA?",
+    "expected_answer": "A análise inclui margem bruta >60%, crescimento de receita >100% YoY, e geração de caixa forte. O ROE é superior a 100%, indicando eficiência operacional.",
+    "contexts": [
+      "Margem bruta consistentemente acima de 60%.",
+      "Receita crescendo >100% anualmente devido à demanda por IA.",
+      "Fluxo de caixa operacional forte, com dividendos crescentes."
+    ]
+  },
+  {
+    "query": "Quais riscos regulatórios afetam a NVIDIA?",
+    "expected_answer": "Riscos incluem regulamentação de exportação para China, leis de concorrência na UE, e possíveis restrições em tecnologia de IA. Geopolítica impacta vendas internacionais.",
+    "contexts": [
+      "Restrições de exportação para China afetam ~20% das vendas.",
+      "Investigações antitruste na Europa sobre práticas de mercado.",
+      "Regulamentação emergente de IA pode impactar desenvolvimento de produtos."
+    ]
+  },
+  {
+    "query": "Como a NVIDIA inova em IA generativa?",
+    "expected_answer": "A NVIDIA desenvolve plataformas como NeMo para treinamento de LLMs, e acelera inferência com TensorRT. Seus GPUs são essenciais para empresas como OpenAI e xAI.",
+    "contexts": [
+      "Plataforma NeMo permite treinamento eficiente de grandes modelos de linguagem.",
+      "TensorRT acelera inferência de modelos de IA em produção.",
+      "Parcerias estratégicas com empresas de IA generativa."
+    ]
+  }
+]

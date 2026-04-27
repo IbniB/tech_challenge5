@@ -1,0 +1,11 @@
+stages:
+  train:
+    cmd: python src/models/train.py
+    deps:
+      - src/models/train.py
+      - src/models/baseline.py
+      - src/features/feature_engineering.py
+      - src/config.py
+      - configs/model_config.yaml
+    outs:
+      - models/model.joblib
