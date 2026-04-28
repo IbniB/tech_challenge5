@@ -37,6 +37,30 @@ Aplicamos bibliotecas GenAI para dar utilidade para as inferências da prediçã
 
 ---
 
+## Por que LSTM? Decisão de Modelagem e o que Esperar dos Resultados
+
+A escolha do algoritmo não foi arbitrária. Avaliamos as alternativas antes de fixar a arquitetura.
+
+Modelos como Prophet são eficientes para capturar sazonalidade explícita (feriados, ciclos mensais), mas têm limitações sérias com a volatilidade não-linear do mercado financeiro, especialmente em ativos de alta liquidez como PETR4.SA e NVDC34.SA. Redes convolucionais (CNNs para séries temporais) funcionam bem em padrões locais de curto prazo, mas perdem contexto de janelas mais longas.
+
+A LSTM (Long Short-Term Memory) foi projetada especificamente para memória sequencial de longo prazo, resolvendo o problema de gradientes que desaparecem em RNNs simples. Para previsão de preços de fechamento usando uma janela de 60 dias, isso se traduz em: o modelo consegue "lembrar" que uma tendência de queda de três semanas atrás ainda é relevante para a predição de amanhã. Esse é exatamente o comportamento esperado em análise técnica de mercado.
+
+### O que Defender sobre Desvios Padrão e Variância
+
+Séries de preços financeiros são intrinsecamente ruidosas. Qualquer modelo que apresente erros próximos a zero em dados de teste deve ser questionado — provavelmente está sobreajustado. O que esperamos e defendemos:
+
+- **MAPE entre 2% e 8%** é considerado competitivo para previsão de curto prazo em ações voláteis. Acima de 15% indica que o modelo perdeu a tendência principal.
+- **RMSE** deve ser avaliado na escala real do ativo (desnormalizando as predições). Um RMSE de R$ 1,50 em uma ação de R$ 35,00 representa um erro de ~4%, que é defensável.
+- **Desvio padrão dos resíduos**: esperamos que os erros se distribuam de forma razoavelmente simétrica em torno de zero. Viés sistemático (onde o modelo erra sempre na mesma direção) indica necessidade de retreinamento ou ajuste de features.
+
+O MLflow registra as curvas de `val_rmse`, `val_mae` e `val_mape` por epoch justamente para que essa análise seja auditável e rastreável. Não basta apresentar o número final — a trajetória de aprendizagem do modelo já é evidência de qualidade de engenharia.
+
+### Champion-Challenger como Próximo Passo
+
+A LSTM é o nosso Champion. O challenger natural a avaliar em iteração futura é a **GRU (Gated Recurrent Unit)**, que tem arquitetura mais simples (menos parâmetros), tende a treinar mais rápido e em muitos benchmarks financeiros empata ou supera a LSTM em séries de médio prazo. Essa comparação está planejada como melhoria incremental no roadmap do projeto.
+
+---
+
 ## Estrutura Inicial e Como Executar Deste Ambiente
 
 O projeto utiliza o Poetry como core de ambiente.
