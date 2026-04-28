@@ -16,16 +16,16 @@ from baseline_lstm import StockLSTM
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def load_data(data_dir):
+def load_data(data_dir, ticker_id):
     """
     Restaura os Data Contracts armazenados na Fase A (Engenharia) e traciona 
     na memória da Rede convertendo diretamente do pipeline NumPy pra tensores imutáveis.
     """
-    logger.info(f"Carregando tensores de {data_dir}...")
-    X_train = np.load(os.path.join(data_dir, "X_train.npy"))
-    y_train = np.load(os.path.join(data_dir, "y_train.npy"))
-    X_test = np.load(os.path.join(data_dir, "X_test.npy"))
-    y_test = np.load(os.path.join(data_dir, "y_test.npy"))
+    logger.info(f"Carregando tensores do ativo '{ticker_id}' em {data_dir}...")
+    X_train = np.load(os.path.join(data_dir, f"{ticker_id}_X_train.npy"))
+    y_train = np.load(os.path.join(data_dir, f"{ticker_id}_y_train.npy"))
+    X_test = np.load(os.path.join(data_dir, f"{ticker_id}_X_test.npy"))
+    y_test = np.load(os.path.join(data_dir, f"{ticker_id}_y_test.npy"))
     
     # Converter de forma hard-typed para evitar Type Drifts (Gap Governança)
     X_train_t = torch.tensor(X_train, dtype=torch.float32)
@@ -45,7 +45,7 @@ def train_model(args):
         # Enfileirando MLOps Logs - Sem "Modelos Órfãos" a partir de hoje
         mlflow.log_params(vars(args))
         
-        X_train, y_train, X_test, y_test = load_data(args.data_dir)
+        X_train, y_train, X_test, y_test = load_data(args.data_dir, args.ticker_id)
         
         train_dataset = TensorDataset(X_train, y_train)
         test_dataset = TensorDataset(X_test, y_test)
@@ -110,7 +110,8 @@ def train_model(args):
         
 if __name__ == "__main__":
     parser = argparse.ArgumentParser("Treinamento Corporativo LSTM da Mesa Financeira")
-    parser.add_argument("--data_dir", type=str, default="../../data/processed")
+    parser.add_argument("--data_dir", type=str, default="data/processed")
+    parser.add_argument("--ticker_id", type=str, default="petr4_sa", help="Identificador minúsculo usado no preprocessing (ex: petr4_sa ou nvdc34_sa)")
     parser.add_argument("--run_id", type=str, default="PETR4")
     parser.add_argument("--epochs", type=int, default=50)
     parser.add_argument("--batch_size", type=int, default=32)

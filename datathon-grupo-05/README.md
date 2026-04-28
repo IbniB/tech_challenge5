@@ -66,9 +66,9 @@ poetry run pytest tests/ -v
 ```
 
 ### Terceira Etapa: Base Neutra Temporal (Fase B)
-Com todos os recortes `.npy` criados pelo código acima, basta empurrar os treinos da nossa classe PyTorch para rodarem em background salvando estatísticas automáticas.
+Com todos os recortes `.npy` criados pelo código acima, basta empurrar os treinos da nossa classe PyTorch para rodarem em background salvando estatísticas automáticas. Você deve passar qual ação deseja que ele puxe da pasta processed usando o parâmetro `--ticker_id`:
 ```bash
-poetry run python src/models/train.py
+poetry run python src/models/train.py --ticker_id petr4_sa
 ```
 
 Para provar a eficiência da governança de modelos, **teste o MLOps na prática**. Abra o dashboard interativo para inspecionar gráficos de erro, rastreio temporal e versões de modelos gravados rodando no bash:
