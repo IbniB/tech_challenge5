@@ -41,10 +41,15 @@ Aplicamos bibliotecas GenAI para dar utilidade para as inferências da prediçã
 
 O projeto utiliza o Poetry como core de ambiente.
 
-### Primeira Etapa: Instalação e Limpeza 
+### Primeira Etapa: Instalação e Ativação do Ambiente
 Na raiz deste diretório (`datathon-grupo-05/`), isolamos os pacotes criando a bolha nativa:
 ```bash
 poetry install
+```
+
+Após a instalação terminar, **ative o ambiente virtual** na sua máquina para que o terminal passe a reconhecer as bibliotecas isoladas (o prefixo do seu terminal vai mudar indicando que você está seguro):
+```bash
+poetry shell
 ```
 
 ### Segunda Etapa: Pre-processamento e Baseline (Fase A)
