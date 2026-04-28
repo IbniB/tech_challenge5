@@ -79,13 +79,20 @@ def process_and_window_data(ticker_id: str, window_size: int = DEFAULT_WINDOW_SI
     # Redimensionando para [samples, time steps, features] que as redes PyTorch/Keras LSTM exigem
     x_windows = np.reshape(x_windows, (x_windows.shape[0], x_windows.shape[1], 1))
     
-    logger.info("Shape X gerado com sucesso - Matriz de Previsores Base: %s", x_windows.shape)
-    logger.info("Shape Y gerado com sucesso - Vetor de Target Histórico: %s", y_targets.shape)
+    # MLOps Temporal Split (80% Treino / 20% Validação Cega)
+    split_idx = int(len(x_windows) * 0.8)
+    X_train, X_test = x_windows[:split_idx], x_windows[split_idx:]
+    y_train, y_test = y_targets[:split_idx], y_targets[split_idx:]
+    
+    logger.info("Shape X gerado com sucesso - Treino: %s, Teste: %s", X_train.shape, X_test.shape)
+    logger.info("Shape Y gerado com sucesso - Treino: %s, Teste: %s", y_train.shape, y_test.shape)
     
     PROCESSED_DATA_PATH.mkdir(parents=True, exist_ok=True)
     
-    np.save(PROCESSED_DATA_PATH / f"{ticker_id}_X_train.npy", x_windows)
-    np.save(PROCESSED_DATA_PATH / f"{ticker_id}_y_train.npy", y_targets)
+    np.save(PROCESSED_DATA_PATH / f"{ticker_id}_X_train.npy", X_train)
+    np.save(PROCESSED_DATA_PATH / f"{ticker_id}_y_train.npy", y_train)
+    np.save(PROCESSED_DATA_PATH / f"{ticker_id}_X_test.npy", X_test)
+    np.save(PROCESSED_DATA_PATH / f"{ticker_id}_y_test.npy", y_test)
     joblib.dump(scaler, PROCESSED_DATA_PATH / f"{ticker_id}_scaler.pkl")
     
     logger.info("Toda a arquitetura transacional salva. Caminho liberado para iniciar os fits.")
