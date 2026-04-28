@@ -71,6 +71,12 @@ Com todos os recortes `.npy` criados pelo código acima, basta empurrar os trein
 poetry run python src/models/train.py
 ```
 
+Para provar a eficiência da governança de modelos, **teste o MLOps na prática**. Abra o dashboard interativo para inspecionar gráficos de erro, rastreio temporal e versões de modelos gravados rodando no bash:
+```bash
+poetry run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
+```
+*(Após rodar, basta acessar `http://localhost:5000` ou `http://127.0.0.1:5000` em qualquer navegador web).*
+
 ### Quarta Etapa: Inicializando Servidores e Microserviços (Fase C)
 O projeto agora é operado em múltiplos microsserviços blindados. A API do FastAPI roda em volta do Prometheus com o painel do MLflow operando assincronamente.
 ```bash
