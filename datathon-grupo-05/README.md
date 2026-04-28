@@ -61,6 +61,47 @@ A LSTM é o nosso Champion. O challenger natural a avaliar em iteração futura 
 
 ---
 
+## Detecção de Drift e Estratégia de Retreino
+
+Esse é um dos pontos mais críticos em qualquer sistema de predição financeira em produção. O maior risco não é o modelo errar — é ele errar silenciosamente por semanas sem que ninguém perceba.
+
+### Por que a Degradação é Invisível
+
+O modelo continua respondendo requisições normalmente, sem lançar exceções ou travar. Mas internamente, a distribuição dos dados de entrada mudou (por exemplo: uma crise setorial, mudança na política de juros, evento macroeconômico) e a relação que o modelo aprendeu entre os últimos 60 dias e o preço de amanhã já não vale mais. Isso é Concept Drift. Sem monitoramento ativo, o time só percebe o problema quando já acumulou semanas de decisões baseadas em predições degradadas.
+
+### As Três Camadas de Alerta
+
+**Data Drift — a entrada mudou:**
+Monitoramos se a distribuição estatística da janela de preços de entrada divergiu em relação ao que o modelo viu durante o treino. A métrica usada é o PSI (Population Stability Index):
+- PSI abaixo de 0.1: distribuição estável, sem ação.
+- PSI entre 0.1 e 0.2: warning — investigar se houve evento de mercado relevante.
+- PSI acima de 0.2: trigger automático de retreino.
+
+**Performance Drift — as métricas em produção caíram:**
+Diariamente, o sistema busca via `yfinance` o preço real de fechamento do ativo e compara com a predição feita no dia anterior. A partir disso calculamos um MAPE rolling de 7 dias. Se esse MAPE cruzar 12%, o pipeline de retreino é acionado independentemente do PSI.
+
+**Concept Drift — a relação feature→target mudou estruturalmente:**
+Detectado via testes estatísticos (ADWIN ou Page-Hinkley) aplicados na janela deslizante dos resíduos. Quando o padrão de erro muda de comportamento aleatório para sistemático (o modelo começa a errar sempre na mesma direção), isso indica que o mercado mudou de regime.
+
+### Fluxo de Retreino com Champion-Challenger
+
+Quando qualquer um dos alertas acima é ativado, o processo não é simplesmente "retreinar e substituir". Seguimos um protocolo de validação:
+
+1. O modelo atual (Champion) permanece em produção respondendo requisições.
+2. Um novo modelo (Challenger) é treinado com os dados mais recentes.
+3. Ambos são avaliados no mesmo conjunto de holdout temporal.
+4. O Challenger só substitui o Champion se apresentar melhoria de pelo menos 0.5% no MAPE — abaixo disso, a diferença pode ser ruído estatístico.
+5. A promoção é registrada no MLflow Model Registry com as métricas comparativas e o `git_sha` do código utilizado.
+
+Esse processo elimina o risco de promover um modelo pior por conta de overfitting no conjunto de validação. E mais importante: cria um rastro auditável de cada transição de versão em produção.
+
+### O que já está implementado e o que é próximo passo
+
+Atualmente o Prometheus monitora latência e volume de requisições na API de serving. A próxima camada — o cálculo de PSI e MAPE rolling em produção — está mapeada como entrega incremental usando Evidently, que já consta no `pyproject.toml` como dependência instalada.
+
+---
+
+
 ## Estrutura Inicial e Como Executar Deste Ambiente
 
 O projeto utiliza o Poetry como core de ambiente.
