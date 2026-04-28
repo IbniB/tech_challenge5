@@ -1,7 +1,31 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
 .pytest_cache/
+.DS_Store
+
+# Ambiente virtual Poetry
+.poetry_cache/
+.venv/
+
+# MLflow (gerado em runtime, não versionar)
 mlruns/
 mlflow.db
+
+# Dados processados — artefatos pesados gerenciados por DVC
+data/processed/*.npy
+data/processed/*.pkl
+data/processed/*.png
+
+# Dados brutos — gerenciados por DVC, o .dvc é que vai para o Git
+data/raw/*.csv
+
+# Jupyter
+notebooks/.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Variáveis de ambiente
 .env
-.DS_Store
+.env.*
+!.env.example

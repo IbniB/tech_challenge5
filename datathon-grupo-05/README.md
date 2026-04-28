@@ -102,55 +102,107 @@ Atualmente o Prometheus monitora latência e volume de requisições na API de s
 ---
 
 
-## Estrutura Inicial e Como Executar Deste Ambiente
+## Como Executar o Projeto
 
-O projeto utiliza o Poetry como core de ambiente.
+O projeto tem dois modos de operação com propósitos distintos.
 
-### Primeira Etapa: Instalação e Ativação do Ambiente
-Na raiz deste diretório (`datathon-grupo-05/`), isolamos os pacotes criando a bolha nativa:
+---
+
+### Modo 1: Desenvolvimento Local (sem Docker)
+
+**Para testes do dia a dia, validação de código e exploração dos dados, você não precisa de Docker.** Tudo roda via Poetry diretamente no terminal.
+
+#### Passo 1 — Instalar e ativar o ambiente
 ```bash
+export POETRY_CACHE_DIR=".poetry_cache"
 poetry install
-```
-
-Após a instalação terminar, **ative o ambiente virtual** na sua máquina para que o terminal passe a reconhecer as bibliotecas isoladas (o prefixo do seu terminal vai mudar indicando que você está seguro):
-```bash
 poetry shell
 ```
 
-### Segunda Etapa: Pre-processamento e Baseline (Fase A)
-Nós automatizamos as varreduras financeiras e os janelamentos tensores de Deep Learning. Realize o donwload inicial e a higienização unitária usando:
+#### Passo 2 — Coletar e preparar os dados (Fase A)
 ```bash
+# Baixar histórico do ativo
 poetry run python src/features/data_collection.py --ticker PETR4.SA
+
+# Versionar os dados brutos (não sobem para o Git)
 poetry run dvc add data/raw/petr4_sa_raw.csv
 
-# Cria os recortes matemáticos sequenciais validando integridade no background
+# Gerar tensores com split 80/20 e validação de schema
 poetry run python src/features/feature_engineering.py --ticker_id petr4_sa
 
-# Provando os testes técnicos
+# Rodar os testes de qualidade
 poetry run pytest tests/ -v
 ```
 
-### Terceira Etapa: Base Neutra Temporal (Fase B)
-Com todos os recortes `.npy` criados pelo código acima, basta empurrar os treinos da nossa classe PyTorch para rodarem em background salvando estatísticas automáticas. Você deve passar qual ação deseja que ele puxe da pasta processed usando o parâmetro `--ticker_id`:
+#### Passo 3 — Explorar os dados (EDA)
 ```bash
+poetry run jupyter notebook notebooks/01_eda.ipynb
+```
+O notebook contém análise de autocorrelação, estacionariedade, volatilidade e distribuição dos ativos. É exploratório — nenhum código aqui é trigger de produção.
+
+#### Passo 4 — Treinar o modelo LSTM (Fase B)
+```bash
+# PETR4.SA
 poetry run python src/models/train.py --ticker_id petr4_sa
+
+# NVDC34.SA (NVIDIA BDR)
+poetry run python src/models/train.py --ticker_id nvdc34_sa
 ```
 
-Para provar a eficiência da governança de modelos, **teste o MLOps na prática**. Abra o dashboard interativo para inspecionar gráficos de erro, rastreio temporal e versões de modelos gravados rodando no bash:
+#### Passo 5 — Inspecionar métricas no MLflow
 ```bash
 poetry run mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
 ```
-*(Após rodar, basta acessar `http://localhost:5000` ou `http://127.0.0.1:5000` em qualquer navegador web).*
+Acesse `http://localhost:5000`. Você verá as curvas de RMSE, MAE e MAPE por epoch, as tags de governança e os artefatos do modelo.
 
-### Quarta Etapa: Inicializando Servidores e Microserviços (Fase C)
-O projeto agora é operado em múltiplos microsserviços blindados. A API do FastAPI roda em volta do Prometheus com o painel do MLflow operando assincronamente.
+#### Passo 6 — Detectar Drift (Fase C — Monitoramento)
+```bash
+# Roda as 3 camadas de detecção (PSI, MAPE rolling, viés de resíduos)
+poetry run python src/monitoring/drift.py --ticker_id petr4_sa --ticker PETR4.SA
+```
+Os resultados aparecem no experimento `drift_monitoring` do MLflow. Exit code 1 indica alerta de retreino.
+
+#### Passo 7 — Consultar o Agente Generativo (Fase D)
+```bash
+export OPENAI_API_KEY="sua_chave_aqui"
+poetry run python src/agent/react_agent.py
+```
+
+---
+
+### Modo 2: Produção com Docker (ecossistema completo)
+
+**Para simular o ambiente de produção ou preparar a demonstração para a banca**, suba o ecossistema completo em containers isolados.
+
 ```bash
 docker compose up --build
 ```
 
-### Última Etapa: Consultando Agentes Humanos ou Autônomos (Fase D)
-Para conversar de forma nativa com a infraestrutura ReAct embutida, você pode girar os scripts agentes desenvolvidos acoplados sobre a OpenAI:
-```bash
-poetry run python src/agent/react_agent.py
+Isso inicializa 4 serviços simultaneamente, cada um em seu próprio container com compute isolado:
+
+| Serviço | Porta | Propósito |
+|---|---|---|
+| `serving_api` | 8000 | API FastAPI de predições |
+| `mlflow_server` | 5000 | Registro central de modelos |
+| `prometheus` | 9090 | Métricas operacionais |
+| `airflow` | 8080 | Orquestrador de pipelines (DAG) |
+
+**Quando usar Docker vs. Poetry:**
+
+- Use **Poetry** quando está desenvolvendo, ajustando código ou fazendo testes rápidos. É mais ágil e não exige Docker instalado ou rodando.
+- Use **Docker** quando quer validar o sistema como um todo, quando vai apresentar para a banca ou quando precisa ver o Airflow orquestrando a DAG completa.
+
+---
+
+### Orquestração com Apache Airflow (Anti-SPOF — GAP 02)
+
+Com o Docker rodando, acesse `http://localhost:8080` (usuário: `admin`, senha: `admin`).
+
+O Airflow gerencia duas DAGs independentes — uma para cada ativo financeiro. Cada DAG executa o pipeline completo de forma declarativa:
+
 ```
-Atenção: Você vai precisar definir a variável do bash chamada `OPENAI_API_KEY` para as inferências Generativas. Os testes de avaliação estatística não dependem deste comando para aprovação local de dependências LLM-as-a-judge.
+coletar_dados → processar_features → validar_artefatos → treinar_modelo → detectar_drift
+```
+
+A separação por ativo garante que uma falha no pipeline da NVIDIA não interrompa o da Petrobras. Cada task roda em processo próprio, sem memória compartilhada — isso elimina o risco de Notebook como ponto único de falha (GAP 02).
+
