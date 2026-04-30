@@ -1,0 +1,194 @@
+{
+  "version": "1.0",
+  "description": "Golden Set para avaliação RAGAS do Agente Financeiro — Datathon Fase 05",
+  "metadata": {
+    "ticker_primary": "PETR4.SA",
+    "ticker_secondary": "NVDC34.SA",
+    "total_pairs": 20,
+    "criteria": "Respostas validadas contra as diretrizes CVM e políticas de risco da corretora"
+  },
+  "pairs": [
+    {
+      "id": "GS-001",
+      "query": "Qual é o limite de recomendação automatizada sem aprovação humana para ativos financeiros?",
+      "expected_answer": "Sistemas automatizados podem emitir sinalizações para ativos com preço abaixo de R$ 30,00. Acima desse valor, é necessária aprovação do gestor responsável antes de qualquer comunicação ao cliente.",
+      "contexts": [
+        "Diretriz 1.1: O banco proíbe terminantemente recomendações diretas de compra acima de R$30.00 sem conselho gestor humano.",
+        "Diretriz Alfa: O banco proíbe terminantemente recomendações diretas de compra acima de R$30.00 sem conselho gestor humano."
+      ],
+      "category": "compliance"
+    },
+    {
+      "id": "GS-002",
+      "query": "O que acontece quando o modelo LSTM prevê variação de mais de 2% no preço de um ativo?",
+      "expected_answer": "Se o modelo preditivo sinalizar variação superior a 2% (positiva ou negativa) no preço de fechamento, todas as ordens automáticas relacionadas ao ativo devem ser suspensas até revisão manual do operador de risco.",
+      "contexts": [
+        "Diretriz 1.2 — Suspensão Automática de Ordens: Se o modelo preditivo interno sinalizar variação superior a 2%, todas as ordens automáticas devem ser suspensas até revisão manual."
+      ],
+      "category": "risk_management"
+    },
+    {
+      "id": "GS-003",
+      "query": "Qual aviso obrigatório deve acompanhar toda recomendação do sistema?",
+      "expected_answer": "Toda recomendação deve ser acompanhada da frase: 'Investimentos envolvem riscos e podem resultar em perdas. Invista de acordo com seu perfil e as restrições regulatórias da CVM.'",
+      "contexts": [
+        "Diretriz 1.3 — Aviso Obrigatório ao Cliente: Toda recomendação emitida pelo sistema deve ser acompanhada da frase oficial da CVM sobre riscos de investimento."
+      ],
+      "category": "compliance"
+    },
+    {
+      "id": "GS-004",
+      "query": "O que é necessário para um modelo de Machine Learning operar em produção segundo as diretrizes?",
+      "expected_answer": "O modelo deve ter registro completo de: versão do modelo, data de treinamento, conjunto de dados utilizado (hash DVC) e métricas de validação (RMSE, MAE, MAPE). Essas informações devem estar disponíveis no MLflow Registry.",
+      "contexts": [
+        "Diretriz 2.1 — Rastreabilidade Obrigatória: Nenhum modelo pode operar em produção sem registro de versão, data de treinamento, hash DVC e métricas de validação no MLflow Registry."
+      ],
+      "category": "governance"
+    },
+    {
+      "id": "GS-005",
+      "query": "Após quantos dias sem validação um modelo é considerado expirado?",
+      "expected_answer": "Modelos treinados há mais de 90 dias sem nova validação são considerados expirados e devem ser retreinados. O prazo começa a contar da última data de treinamento registrada no MLflow.",
+      "contexts": [
+        "Diretriz 2.2 — Validade do Modelo: Modelos treinados há mais de 90 dias sem nova validação são considerados expirados e devem ser retreinados."
+      ],
+      "category": "governance"
+    },
+    {
+      "id": "GS-006",
+      "query": "O que é um modelo órfão e o que deve ser feito com ele?",
+      "expected_answer": "Um modelo órfão é um arquivo de pesos sem registro MLflow correspondente. Ele deve ser descartado e o pipeline de treino deve ser reexecutado para gerar um novo modelo com rastreabilidade completa.",
+      "contexts": [
+        "Diretriz 2.3 — Proibição de Modelos Órfãos: É expressamente proibido o uso de pesos de modelos sem rastreabilidade de origem. Arquivos sem registro MLflow devem ser descartados."
+      ],
+      "category": "governance"
+    },
+    {
+      "id": "GS-007",
+      "query": "Qual é o limite de exposição por cliente para operações com PETR4.SA?",
+      "expected_answer": "Para o ativo PETR4.SA, a exposição máxima por cliente é de R$ 100.000,00. Variações superiores a 3% requerem intervenção humana obrigatória.",
+      "contexts": [
+        "Diretriz 3.1 — PETR4.SA: Exposição máxima por cliente de R$ 100.000,00. Variações acima de 3% requerem intervenção humana obrigatória."
+      ],
+      "category": "risk_limits"
+    },
+    {
+      "id": "GS-008",
+      "query": "Qual é o limite de exposição por cliente para operações com NVDC34.SA?",
+      "expected_answer": "Para o ativo NVDC34.SA, a exposição máxima por cliente é de R$ 50.000,00. O ativo é lastreado em ADR americano e está sujeito a variação cambial.",
+      "contexts": [
+        "Diretriz 3.2 — NVDC34.SA: Ativo lastreado em ADR americano. Exposição máxima por cliente de R$ 50.000,00. Sujeito a variação cambial."
+      ],
+      "category": "risk_limits"
+    },
+    {
+      "id": "GS-009",
+      "query": "Um cliente tem 45% do portfólio em PETR4.SA. O que o sistema deve fazer?",
+      "expected_answer": "O sistema deve alertar o operador sobre concentração acima de 40%. Nenhum cliente deve ter mais de 40% do portfólio concentrado em um único ativo monitorado pelo sistema preditivo.",
+      "contexts": [
+        "Diretriz 3.3 — Controle de Concentração: Nenhum cliente deve ter mais de 40% do portfólio concentrado em um único ativo. O agente deve alertar o operador se detectar concentração acima deste limite."
+      ],
+      "category": "risk_management"
+    },
+    {
+      "id": "GS-010",
+      "query": "O agente pode armazenar o CPF do cliente para personalizar recomendações?",
+      "expected_answer": "Não. O sistema não deve armazenar, processar ou transmitir dados pessoais de clientes como CPF sem consentimento explícito registrado. Logs de inferência devem conter apenas o ID de sessão anonimizado.",
+      "contexts": [
+        "Diretriz 4.1 — Dados Pessoais: O sistema não deve armazenar, processar ou transmitir dados pessoais sem consentimento explícito. Logs devem conter apenas ID de sessão anonimizado."
+      ],
+      "category": "lgpd"
+    },
+    {
+      "id": "GS-011",
+      "query": "Em quantos dias os dados de um cliente devem ser removidos após solicitação?",
+      "expected_answer": "Os dados devem ser removidos em até 15 dias úteis após a solicitação, incluindo o histórico de consultas ao agente preditivo. Isso é garantido pelo direito ao esquecimento previsto na LGPD.",
+      "contexts": [
+        "Diretriz 4.2 — Direito ao Esquecimento: Mediante solicitação, todos os dados de um cliente devem ser removidos em até 15 dias úteis, incluindo histórico de consultas ao agente preditivo."
+      ],
+      "category": "lgpd"
+    },
+    {
+      "id": "GS-012",
+      "query": "O que é o σ-tolerance e qual é o critério de aceite do modelo LSTM?",
+      "expected_answer": "σ-tolerance mede a porcentagem de predições que ficaram dentro de 0.5 desvios-padrão do preço real observado. O critério de aceite da banca é que pelo menos 70% das predições estejam dentro dessa faixa.",
+      "contexts": [
+        "Métrica de negócio: ≥ 70% das predições dentro de 0.5σ (desvio-padrão) do preço observado. Critério de aceite definido pela banca do Datathon Fase 05."
+      ],
+      "category": "model_evaluation"
+    },
+    {
+      "id": "GS-013",
+      "query": "Por que o modelo LSTM foi escolhido em vez de Prophet ou CNN para previsão de ações?",
+      "expected_answer": "O LSTM foi escolhido porque captura dependências de longo prazo em séries temporais financeiras. Prophet é limitado para volatilidade não-linear, e CNNs perdem contexto em janelas longas. O LSTM consegue lembrar padrões de até 60 dias anteriores, essencial para análise técnica de mercado.",
+      "contexts": [
+        "LSTM: projetado especificamente para memória sequencial de longo prazo, resolvendo o problema de gradientes que desaparecem em RNNs simples. Para previsão com janela de 60 dias, o modelo consegue lembrar tendências de semanas anteriores."
+      ],
+      "category": "model_selection"
+    },
+    {
+      "id": "GS-014",
+      "query": "O que é o PSI e quando ele indica necessidade de retreino do modelo?",
+      "expected_answer": "PSI (Population Stability Index) mede a divergência entre a distribuição atual dos dados e a distribuição de treinamento. PSI abaixo de 0.1 indica estabilidade. Entre 0.1 e 0.2 é um warning para investigação. Acima de 0.2 é um trigger automático de retreino.",
+      "contexts": [
+        "Data Drift: PSI abaixo de 0.1 = estável. PSI entre 0.1 e 0.2 = warning. PSI acima de 0.2 = trigger automático de retreino."
+      ],
+      "category": "monitoring"
+    },
+    {
+      "id": "GS-015",
+      "query": "O que é Concept Drift e como ele é detectado no sistema?",
+      "expected_answer": "Concept Drift ocorre quando a relação entre as features de entrada e o preço futuro muda estruturalmente, geralmente por mudança de regime de mercado. É detectado quando o modelo começa a errar sistematicamente na mesma direção (viés médio dos resíduos), indicando que o padrão aprendido não vale mais.",
+      "contexts": [
+        "Concept Drift: detectado via análise do viés sistemático dos resíduos. Quando o modelo erra sempre na mesma direção, a relação feature→target mudou estruturalmente."
+      ],
+      "category": "monitoring"
+    },
+    {
+      "id": "GS-016",
+      "query": "Qual o fluxo de retreino quando um alerta de drift é detectado?",
+      "expected_answer": "O modelo Champion permanece em produção durante o processo. Um novo modelo Challenger é treinado com dados recentes. O Challenger substitui o Champion apenas se apresentar melhoria de pelo menos 0.5% no MAPE. A promoção é registrada no MLflow com métricas comparativas e o git_sha.",
+      "contexts": [
+        "Champion-Challenger: o modelo atual permanece em produção. O Challenger só substitui o Champion com melhoria de 0.5% no MAPE. Promoção registrada no MLflow Model Registry."
+      ],
+      "category": "retraining"
+    },
+    {
+      "id": "GS-017",
+      "query": "Por que as DAGs do Airflow são separadas por ticker ao invés de uma DAG única?",
+      "expected_answer": "Para garantir isolamento de compute — nunca compartilhar cluster entre pipelines desconexos. Se o pipeline da NVIDIA falhar, o da Petrobras continua operando normalmente. Isso elimina o ponto único de falha (SPOF) que a banca penaliza como GAP 02.",
+      "contexts": [
+        "GAP 02 — Anti-SPOF: cada ativo tem sua própria DAG independente. Compute isolation: falha em um pipeline não impacta o outro. LocalExecutor garante processo separado por task."
+      ],
+      "category": "architecture"
+    },
+    {
+      "id": "GS-018",
+      "query": "Como o sistema garante que não existe janela de dados vazios durante atualização do índice RAG?",
+      "expected_answer": "O sistema usa upsert incremental por hash de conteúdo. Apenas documentos novos ou modificados são re-embeddados. O índice existente é carregado antes de qualquer atualização — nunca deletado primeiro. A persistência usa rename atômico de arquivo temporário.",
+      "contexts": [
+        "GAP 03 — Anti-Full-Flush: upsert incremental por hash SHA-256. O índice nunca é deletado antes do novo estar pronto. Rename atômico garante zero janela de store vazio."
+      ],
+      "category": "architecture"
+    },
+    {
+      "id": "GS-019",
+      "query": "O que o MAPE rolling de 7 dias indica e qual é o threshold crítico?",
+      "expected_answer": "O MAPE rolling de 7 dias compara as predições do modelo com os preços reais de fechamento dos últimos 7 pregões. Se este indicador ultrapassar 12%, o sistema aciona automaticamente o pipeline de retreino, independentemente do PSI.",
+      "contexts": [
+        "Performance Drift: MAPE rolling 7 dias acima de 12% = trigger de retreino, independente do PSI. Calculado comparando predições vs. fechamento real via yfinance."
+      ],
+      "category": "monitoring"
+    },
+    {
+      "id": "GS-020",
+      "query": "Posso recomendar a compra de NVDC34.SA para um cliente com R$ 80.000 alocados nesse ativo?",
+      "expected_answer": "Não. O limite de exposição máxima por cliente para NVDC34.SA é de R$ 50.000,00. Com R$ 80.000 alocados, o cliente já excede o limite regulatório. O sistema deve alertar sobre a concentração excessiva e não emitir novas recomendações de compra sem revisão do operador de risco.",
+      "contexts": [
+        "Diretriz 3.2 — NVDC34.SA: Exposição máxima por cliente de R$ 50.000,00.",
+        "Diretriz 3.3 — Controle de Concentração: O agente deve alertar o operador se detectar concentração acima do limite permitido."
+      ],
+      "category": "risk_limits"
+    }
+  ]
+}
