@@ -7,7 +7,7 @@ Embeddings: sentence-transformers/all-MiniLM-L6-v2 (local, zero custo).
     1. predict_lstm_price    — Consulta a API FastAPI interna (modelo LSTM treinado)
     2. fetch_real_stock_price — Cotação real via yfinance (âncora anti-alucinação)
     3. query_compliance_rag  — Consulta semântica na base de conformidade CVM/Risco
-
+"""
 import logging
 import os
 
@@ -43,30 +43,39 @@ def predict_lstm_price(ticker: str) -> str:
         # Determina o ticker_id para carregar o scaler correto
         ticker_id = ticker.lower().replace(".", "_").replace("-", "_")
 
-        # Busca os últimos 90 dias (precisamos de pelo menos 60 pregões)
+        # Busca os últimos 100 dias (precisamos de 60 pregões + margem para as features técnicas de 26 dias)
         import yfinance as yf
-        df = yf.download(ticker, period="90d", progress=False)
+        df = yf.download(ticker, period="100d", progress=False)
         if isinstance(df.columns, object) and hasattr(df.columns, 'levels'):
             df.columns = [c[0] for c in df.columns]
-        closes = df["Close"].dropna().values[-60:]
+            
+        from src.features.feature_engineering import add_technical_indicators
+        df = add_technical_indicators(df)
+        
+        feature_cols = ['Close', 'Volume', 'Daily_Return', 'Log_Return', 'SMA_20', 
+                        'EMA_20', 'Volatility_20', 'BB_Upper', 'BB_Lower', 'RSI_14', 
+                        'MACD', 'MACD_Signal']
+        
+        features = df[feature_cols].values[-60:]
 
-        if len(closes) < 60:
-            return f"Dados insuficientes para {ticker}: apenas {len(closes)} pregões disponíveis."
+        if len(features) < 60:
+            return f"Dados insuficientes para {ticker} após indicadores: {len(features)} pregões disponíveis."
 
         # Normaliza usando o scaler do treino
-        scaler_path = Path(f"data/processed/{ticker_id}_scaler.pkl")
+        scaler_path = Path(f"data/processed/{ticker_id}_feature_scaler.pkl")
         if not scaler_path.exists():
             return (
                 f"Scaler não encontrado para {ticker_id}. "
-                "Execute o pipeline de feature engineering antes."
+                "Execute o data pipeline primeiro."
             )
-
         scaler = joblib.load(scaler_path)
-        closes_scaled = scaler.transform(closes.reshape(-1, 1)).flatten().tolist()
+        scaled_data = scaler.transform(features)
+        
+        # Envia o payload no formato correto: batch=1, timesteps=60, features=12
+        payload = {"data": [scaled_data.tolist()]}
 
         # Chama a API de serving
         base_url = os.environ.get("PREDICT_API_URL", "http://localhost:8000")
-        payload = {"window_data": closes_scaled, "asset_id": ticker}
         response = requests.post(f"{base_url}/predict", json=payload, timeout=10)
 
         if response.status_code == 200:

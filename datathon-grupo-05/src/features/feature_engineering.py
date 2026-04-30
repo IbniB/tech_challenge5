@@ -54,46 +54,99 @@ def validate_and_load_data(ticker_id: str) -> pd.DataFrame:
         logger.error("DANGER! Data Drift detectado na injeção crua! Valores/Schema corrompidos da Internet. Detalhes: %s", exc)
         raise
 
-def create_sequences(data: np.ndarray, window_size: int) -> tuple[np.ndarray, np.ndarray]:
-    """Corta as janelas temporais contínuas e pareia com o próximo valor target (Close)."""
+def add_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    """Adiciona features técnicas avançadas de mercado para o modelo LSTM."""
+    # 1. Retornos
+    df['Daily_Return'] = df['Close'].pct_change()
+    df['Log_Return'] = np.log(df['Close'] / df['Close'].shift(1))
+    
+    # 2. Médias Móveis
+    df['SMA_20'] = df['Close'].rolling(window=20).mean()
+    df['EMA_20'] = df['Close'].ewm(span=20, adjust=False).mean()
+    
+    # 3. Volatilidade e Bollinger Bands
+    df['Volatility_20'] = df['Close'].rolling(window=20).std()
+    df['BB_Upper'] = df['SMA_20'] + (df['Volatility_20'] * 2)
+    df['BB_Lower'] = df['SMA_20'] - (df['Volatility_20'] * 2)
+    
+    # 4. RSI (Relative Strength Index)
+    delta = df['Close'].diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss
+    df['RSI_14'] = 100 - (100 / (1 + rs))
+    
+    # 5. MACD (Moving Average Convergence Divergence)
+    ema_12 = df['Close'].ewm(span=12, adjust=False).mean()
+    ema_26 = df['Close'].ewm(span=26, adjust=False).mean()
+    df['MACD'] = ema_12 - ema_26
+    df['MACD_Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+    
+    # Dropa os dias iniciais que não têm histórico suficiente para a Média Móvel de 26 dias
+    return df.dropna().copy()
+
+
+def create_sequences(features: np.ndarray, target: np.ndarray, window_size: int) -> tuple[np.ndarray, np.ndarray]:
+    """Corta as janelas temporais contínuas e pareia com o próximo valor target."""
     x, y = [], []
-    for i in range(window_size, len(data)):
-        x.append(data[i-window_size:i, 0])
-        y.append(data[i, 0])
+    for i in range(window_size, len(features)):
+        x.append(features[i-window_size:i, :])
+        y.append(target[i, 0])
     return np.array(x), np.array(y)
 
 def process_and_window_data(ticker_id: str, window_size: int = DEFAULT_WINDOW_SIZE) -> None:
     """Rotina de transformação End-To-End convertendo de CSV bruto para Array 3D na escala da LSTM."""
     df = validate_and_load_data(ticker_id)
+    df = add_technical_indicators(df)
     
-    # A métrica financeira focada em fechamentos
-    target_data = df[["Close"]].values
+    # Features e Target separados para evitar vazamento e facilitar a desnormalização
+    feature_cols = ['Close', 'Volume', 'Daily_Return', 'Log_Return', 'SMA_20', 
+                    'EMA_20', 'Volatility_20', 'BB_Upper', 'BB_Lower', 'RSI_14', 
+                    'MACD', 'MACD_Signal']
+    
+    logger.info("Criadas %d features técnicas no pipeline.", len(feature_cols))
+    
+    features_data = df[feature_cols].values
+    target_data = df[['Close']].values
     
     logger.info("Equilibrando amplitude dos valores usando Min-Max Scaler do Scikit-Learn...")
-    scaler = MinMaxScaler(feature_range=(0, 1))
-    scaled_data = scaler.fit_transform(target_data)
+    feature_scaler = MinMaxScaler(feature_range=(0, 1))
+    target_scaler = MinMaxScaler(feature_range=(0, 1))
+    
+    scaled_features = feature_scaler.fit_transform(features_data)
+    scaled_target = target_scaler.fit_transform(target_data)
     
     logger.info("Produzindo agrupamento das janelas fatiadas contendo o tamanho t de %d dias...", window_size)
-    x_windows, y_targets = create_sequences(scaled_data, window_size)
+    x_windows, y_targets = create_sequences(scaled_features, scaled_target, window_size)
     
-    # Redimensionando para [samples, time steps, features] que as redes PyTorch/Keras LSTM exigem
-    x_windows = np.reshape(x_windows, (x_windows.shape[0], x_windows.shape[1], 1))
+    # Shape garantido: [samples, time steps, features]
+    logger.info("Shape do tensor tridimensional: %s", x_windows.shape)
     
     # MLOps Temporal Split (80% Treino / 20% Validação Cega)
     split_idx = int(len(x_windows) * 0.8)
     X_train, X_test = x_windows[:split_idx], x_windows[split_idx:]
     y_train, y_test = y_targets[:split_idx], y_targets[split_idx:]
     
-    logger.info("Shape X gerado com sucesso - Treino: %s, Teste: %s", X_train.shape, X_test.shape)
-    logger.info("Shape Y gerado com sucesso - Treino: %s, Teste: %s", y_train.shape, y_test.shape)
+    logger.info("Treino: %s (X), %s (y) | Teste: %s (X), %s (y)", X_train.shape, y_train.shape, X_test.shape, y_test.shape)
     
     PROCESSED_DATA_PATH.mkdir(parents=True, exist_ok=True)
     
-    np.save(PROCESSED_DATA_PATH / f"{ticker_id}_X_train.npy", X_train)
-    np.save(PROCESSED_DATA_PATH / f"{ticker_id}_y_train.npy", y_train)
-    np.save(PROCESSED_DATA_PATH / f"{ticker_id}_X_test.npy", X_test)
-    np.save(PROCESSED_DATA_PATH / f"{ticker_id}_y_test.npy", y_test)
-    joblib.dump(scaler, PROCESSED_DATA_PATH / f"{ticker_id}_scaler.pkl")
+    # Escrita atômica: salva em arquivo temporário e só renomeia quando concluído.
+    artefatos = {
+        f"{ticker_id}_X_train.npy": X_train,
+        f"{ticker_id}_y_train.npy": y_train,
+        f"{ticker_id}_X_test.npy":  X_test,
+        f"{ticker_id}_y_test.npy":  y_test,
+    }
+    for nome, dado in artefatos.items():
+        destino = PROCESSED_DATA_PATH / nome
+        tmp = PROCESSED_DATA_PATH / f".tmp_{nome}"
+        np.save(tmp, dado)
+        tmp.rename(destino)  # rename é atômico
+        logger.info("Artefato persistido: %s (shape=%s)", nome, dado.shape)
+
+    joblib.dump(feature_scaler, PROCESSED_DATA_PATH / f"{ticker_id}_feature_scaler.pkl")
+    joblib.dump(target_scaler, PROCESSED_DATA_PATH / f"{ticker_id}_target_scaler.pkl")
     
     logger.info("Toda a arquitetura transacional salva. Caminho liberado para iniciar os fits.")
 

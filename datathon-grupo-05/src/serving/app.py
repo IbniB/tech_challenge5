@@ -1,87 +1,192 @@
+"""API de Serving — Predição LSTM com carregamento seguro de modelo (GAP 03).
+
+Resolve:
+    - GAP 03: Elimina o placeholder perigoso ("Awaiting Model Bind") que retornava
+              predições falsas silenciosamente quando o MLflow estava indisponível.
+              O modelo é carregado de forma segura no startup, e a API rejeita
+              requisições explicitamente se não houver modelo disponível.
+    - GAP 01: Prometheus para observabilidade operacional (latência, contagem, drift warnings).
+"""
 import logging
+import os
 import time
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
-import torch
+
+import mlflow
+import mlflow.pytorch
 import numpy as np
+import torch
+from fastapi import FastAPI, HTTPException
+from prometheus_client import Counter, Histogram, make_asgi_app
+from pydantic import BaseModel, Field
 
-# MLOps Observabilidade Governamental
-from prometheus_client import make_asgi_app, Histogram, Counter
-
-# Proteção da arquitetura (Evita Falha Silenciosa de Deploy)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
-# Definindo as Métricas Auditáveis
-REQUEST_COUNT = Counter("predict_requests_total", "Total de predições requisitadas da mesa de operações")
-REQUEST_LATENCY = Histogram("predict_latency_seconds", "Latência das predições financeiras em segundos")
-DRIFT_WARNINGS = Counter("data_drift_warnings", "Sinalizador de Concept Drift na Injeção de Features")
+# ─── Métricas Prometheus ────────────────────────────────────────────────────────
+REQUEST_COUNT   = Counter("predict_requests_total", "Total de predições requisitadas")
+REQUEST_LATENCY = Histogram("predict_latency_seconds", "Latência das predições (s)")
+DRIFT_WARNINGS  = Counter("data_drift_warnings", "Sinalizações de Data Drift na entrada")
+MODEL_LOAD_FAILURES = Counter("model_load_failures_total", "Falhas ao carregar modelo do MLflow")
 
-app = FastAPI(title="Mesa de Operações - Previsão Analítica LSTM", version="1.0.0")
+app = FastAPI(
+    title="Mesa de Operações — Previsão Analítica LSTM",
+    version="2.0.0",
+    description="API de inferência LSTM para previsão de fechamento de ativos financeiros.",
+)
 
-# Acoplador de métricas do Prometheus ao FastAPI (Resolve o Gap MLOps de "Falta de Observabilidade")
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 
+# ─── Schema de Entrada ──────────────────────────────────────────────────────────
 class TimeSeriesInput(BaseModel):
-    # Validando estrutura: 60 dias obrigatórios, assim como na rede neural original treinada (Data Contract na API)
-    window_data: list[float] = Field(..., min_length=60, max_length=60, description="Lag de 60 dias do preço histórico do Ativo (Min-Max Scaled)")
-    asset_id: str = Field(default="PETR4.SA", description="Ticker universal do papel rastreado")
+    data: list[list[list[float]]] = Field(
+        ...,
+        description="Tensor 3D das features normalizadas [batch, timesteps, features]. Ex: [1, 60, 12]"
+    )
+    asset_id: str = Field(default="PETR4.SA", description="Ticker do ativo")
 
-# Cache do modelo na memoria do serviço
-lstm_model = None
+
+# ─── Estado Global do Modelo ────────────────────────────────────────────────────
+# Nunca usar placeholder ou valor hardcoded — isso é o anti-padrão do GAP 03.
+# Se o modelo não carregou, a API falha explicitamente com 503.
+_model = None
+_model_run_id: str | None = None
+
+
+def _carregar_modelo_mlflow(ticker_id: str = "petr4_sa") -> bool:
+    """Carrega o modelo mais recente do experimento MLflow para o ticker informado.
+
+    Retorna True se o carregamento for bem-sucedido, False caso contrário.
+    Em caso de falha, a API opera sem modelo e rejeita predições (503).
+    Isso elimina o anti-padrão de responder predições falsas silenciosamente (GAP 03).
+    """
+    global _model, _model_run_id
+
+    tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
+    mlflow.set_tracking_uri(tracking_uri)
+
+    try:
+        client = mlflow.tracking.MlflowClient()
+        experiment = client.get_experiment_by_name("stock_prediction_lstm")
+        if not experiment:
+            logger.error("Experimento 'stock_prediction_lstm' não encontrado no MLflow.")
+            MODEL_LOAD_FAILURES.inc()
+            return False
+
+        ticker_upper = ticker_id.upper().replace("_", ".")
+        runs = client.search_runs(
+            experiment_ids=[experiment.experiment_id],
+            filter_string=f"tags.ticker = '{ticker_upper}'",
+            order_by=["start_time DESC"],
+            max_results=1,
+        )
+
+        if not runs:
+            logger.error("Nenhum run encontrado para %s no MLflow.", ticker_upper)
+            MODEL_LOAD_FAILURES.inc()
+            return False
+
+        run = runs[0]
+        model_uri = f"runs:/{run.info.run_id}/lstm_model"
+        _model = mlflow.pytorch.load_model(model_uri, map_location="cpu")
+        _model.eval()
+        _model_run_id = run.info.run_id[:8]
+
+        logger.info("Modelo carregado com sucesso. Run: %s | Ticker: %s", _model_run_id, ticker_upper)
+        return True
+
+    except Exception as exc:
+        logger.error("Falha ao carregar modelo do MLflow: %s", exc)
+        MODEL_LOAD_FAILURES.inc()
+        return False
+
 
 @app.on_event("startup")
-def load_model_registry():
-    global lstm_model
-    try:
-        # Acesso robusto ao artefato blindado do Mlflow (Tratativa Anti-gap de Pesos Órfãos)
-        logger.info("Conectando ao Registry local para extração do binário Pytorch da Fase B...")
-        # Fallback de segurança corporativa caso o diretório MLflow esteja reiniciando no cluster
-        lstm_model = "Awaiting Model Bind" 
-        logger.info("Sistema Analítico Ativo e Aguardando Chamadas Externas.")
-    except Exception as e:
-        logger.error(f"Falha gravíssima ao atracar modelo: {e}")
+def startup_event():
+    """Carrega o modelo no startup. Se falhar, a API sobe mas rejeita predições."""
+    ticker_id = os.getenv("SERVING_TICKER_ID", "petr4_sa")
+    sucesso = _carregar_modelo_mlflow(ticker_id)
+    if not sucesso:
+        logger.warning(
+            "API iniciada SEM modelo carregado. "
+            "Endpoint /predict retornará 503 até o modelo estar disponível."
+        )
+
+
+# ─── Endpoints ──────────────────────────────────────────────────────────────────
 
 @app.post("/predict")
 async def infer_asset_price(payload: TimeSeriesInput):
+    """Realiza inferência de preço de fechamento normalizado para o ativo informado."""
     REQUEST_COUNT.inc()
     start_time = time.time()
-    
+
+    # Rejeição explícita se modelo não disponível — elimina o anti-padrão GAP 03
+    if _model is None:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Modelo não disponível. O serviço está aguardando o carregamento do MLflow. "
+                "Verifique o experimento 'stock_prediction_lstm' e tente novamente."
+            ),
+        )
+
     try:
-        # Puxando o input da web (JSON list) e processando de volta pro formato Torch Tensor (N, Seq, F)
-        sequence = np.array(payload.window_data).reshape(1, 60, 1)
+        sequence = np.array(payload.data)
         tensor_seq = torch.tensor(sequence, dtype=torch.float32)
-        
-        # Inferência
-        if lstm_model == "Awaiting Model Bind":
-            # Caso de segurança pra health-checks da porta HTTPS subindo em Cloud CI/CD
-            prediction = 0.5512
-        else:
-            # LSTM operando carga com pesos importados do `train.py`
-            prediction = lstm_model(tensor_seq).item()
-        
-        # Auditoria de Drift: Se o comportamento diário destoar radicalmente da normalidade escalada
-        mean_price = np.mean(payload.window_data)
-        if mean_price < -2.0 or mean_price > 2.0:
-            # Notifica flag de Data Drift para os Analytics. Impede a queda invisível do desempenho (Gap 06)
+
+        with torch.no_grad():
+            prediction = _model(tensor_seq).item()
+
+        # Watchdog de Data Drift na entrada (GAP 06 na camada de serving)
+        mean_input = float(np.mean(payload.data))
+        std_input  = float(np.std(payload.data))
+        if mean_input < 0.0 or mean_input > 1.0 or std_input > 0.5:
             DRIFT_WARNINGS.inc()
-            logger.warning(f"MLOps Drift Watchdog: Possível anomalia ou Data Drift na requisição de {payload.asset_id}. Media={mean_price:.2f}")
-            
-        logger.info(f"Inferência concluída. Predicted Scaled Price: {prediction:.5f}")
-        
-    except Exception as e:
-        logger.error(f"Erro no processamento da matriz preditiva: {e}")
-        raise HTTPException(status_code=500, detail="Inconsistência Analítica Crítica na Modelagem Espacial.")
+            logger.warning(
+                "Possível Data Drift na entrada de %s: mean=%.3f, std=%.3f",
+                payload.asset_id, mean_input, std_input,
+            )
+
+        logger.info("Inferência OK — %s | scaled=%.5f | run=%s",
+                    payload.asset_id, prediction, _model_run_id)
+
+    except Exception as exc:
+        logger.error("Erro na inferência: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Erro interno na inferência: {exc}")
     finally:
         REQUEST_LATENCY.observe(time.time() - start_time)
-        
+
     return {
-        "asset": payload.asset_id,
-        "prediction_scaled": prediction,
-        "message": "Operação Rastreada com Sucesso Seguro"
+        "asset":              payload.asset_id,
+        "prediction_scaled":  round(prediction, 6),
+        "model_run_id":       _model_run_id,
+        "status":             "ok",
     }
+
+
+@app.post("/reload-model")
+async def reload_model():
+    """Força o recarregamento do modelo do MLflow sem derrubar a API.
+    
+    Isso implementa o padrão de atualização incremental (GAP 03):
+    o modelo antigo permanece em memória até o novo ser carregado com sucesso.
+    """
+    ticker_id = os.getenv("SERVING_TICKER_ID", "petr4_sa")
+    sucesso = _carregar_modelo_mlflow(ticker_id)
+    if not sucesso:
+        raise HTTPException(status_code=503, detail="Falha ao recarregar modelo do MLflow.")
+    return {"status": "modelo recarregado", "run_id": _model_run_id}
+
 
 @app.get("/health")
 async def health_check():
-    return {"status": "Governança Ativa e Segura", "version": "1.0.0"}
+    """Health check com estado real do modelo — nunca retorna OK com modelo ausente."""
+    return {
+        "status":        "ok" if _model is not None else "degraded",
+        "model_loaded":  _model is not None,
+        "model_run_id":  _model_run_id,
+        "version":       "2.0.0",
+    }

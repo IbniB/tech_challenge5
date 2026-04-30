@@ -131,7 +131,7 @@ def train_model(args: argparse.Namespace) -> None:
         logger.info("Usando hardware: %s", device)
 
         model = StockLSTM(
-            input_size=1,
+            input_size=X_train.shape[2],
             hidden_size=args.hidden_size,
             num_layers=args.num_layers,
             dropout=args.dropout,
