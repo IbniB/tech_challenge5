@@ -22,16 +22,17 @@ def test_schema_validation_failure(sample_raw_data):
 def test_create_sequences():
     """Garante o janelamento matemático do LSTM perfeitamente."""
     # Vetor de 10 dias com 1 feature de preço
-    dummy_data = np.array([[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]])
+    dummy_features = np.array([[1], [2], [3], [4], [5], [6], [7], [8], [9], [10]])
+    dummy_target = dummy_features.copy()
     window = 3
     
-    x, y = create_sequences(dummy_data, window)
+    x, y = create_sequences(dummy_features, dummy_target, window)
     
     # Se window é 3, perco os primeiros 3 índices pra formar a 1a janela
     # Tamanho esperado das instâncias previsoras = 10 - 3 = 7
-    assert x.shape == (7, 3)
+    assert x.shape == (7, 3, 1)
     assert y.shape == (7,)
     
     # Primeira janela deve ter [1, 2, 3] e tentar prever o valor 4
-    np.testing.assert_array_equal(x[0], np.array([1, 2, 3]))
+    np.testing.assert_array_equal(x[0], np.array([[1], [2], [3]]))
     assert y[0] == 4

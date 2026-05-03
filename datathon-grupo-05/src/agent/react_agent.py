@@ -18,7 +18,7 @@ import logging
 import sys
 from pathlib import Path
 
-from langchain.agents import AgentType, Tool, initialize_agent
+from langchain.agents import Tool, initialize_agent
 from langchain.memory import ConversationBufferWindowMemory
 from langchain_community.llms import HuggingFacePipeline
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
@@ -61,13 +61,34 @@ def _carregar_llm_local() -> HuggingFacePipeline:
         trust_remote_code=True,
     )
 
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL_ID,
-        cache_dir=str(MODEL_CACHE),
-        trust_remote_code=True,
-        device_map="cpu",     # CPU — compatível com qualquer máquina
-        low_cpu_mem_usage=True,
-    )
+    # Tentativa de carregamento otimizado com Quantização INT4 (BitsAndBytes)
+    try:
+        from transformers import BitsAndBytesConfig
+        import torch
+        
+        quant_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            MODEL_ID,
+            cache_dir=str(MODEL_CACHE),
+            trust_remote_code=True,
+            device_map="auto",
+            quantization_config=quant_config,
+        )
+        logger.info("Modelo carregado com Quantização INT4 (VRAM ~300MB).")
+    except Exception as e:
+        logger.warning(f"Quantização falhou ou GPU não detectada ({e}). Fazendo fallback para CPU bruta.")
+        model = AutoModelForCausalLM.from_pretrained(
+            MODEL_ID,
+            cache_dir=str(MODEL_CACHE),
+            trust_remote_code=True,
+            device_map="cpu",     # CPU — fallback compatível com qualquer máquina
+            low_cpu_mem_usage=True,
+        )
 
     pipe = pipeline(
         "text-generation",
@@ -134,7 +155,7 @@ def criar_agente():
     agente = initialize_agent(
         tools=tools,
         llm=llm,
-        agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+        agent="zero-shot-react-description",
         verbose=True,
         handle_parsing_errors=True,
         memory=memory,

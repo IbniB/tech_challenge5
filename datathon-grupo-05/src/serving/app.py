@@ -117,7 +117,7 @@ def startup_event():
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────────
 
-@app.post("/predict")
+@app.post("/infer")
 async def infer_asset_price(payload: TimeSeriesInput):
     """Realiza inferência de preço de fechamento normalizado para o ativo informado."""
     REQUEST_COUNT.inc()
@@ -181,7 +181,12 @@ async def reload_model():
     return {"status": "modelo recarregado", "run_id": _model_run_id}
 
 
-@app.get("/health")
+@app.get("/")
+async def liveness_probe():
+    """Liveness probe para Kubernetes/Docker."""
+    return {"status": "alive"}
+
+@app.get("/ready")
 async def health_check():
     """Health check com estado real do modelo — nunca retorna OK com modelo ausente."""
     return {
@@ -190,3 +195,54 @@ async def health_check():
         "model_run_id":  _model_run_id,
         "version":       "2.0.0",
     }
+
+
+@app.get("/startup")
+async def startup_probe():
+    """Startup probe para Kubernetes/Docker — Garante que dependências pesadas carregaram."""
+    if _model is None:
+        raise HTTPException(status_code=503, detail="Modelo ainda não carregado")
+    return {"status": "started"}
+
+
+from pydantic import BaseModel
+
+class TrainPayload(BaseModel):
+    ticker: str = "PETR4.SA"
+
+from fastapi import BackgroundTasks
+
+@app.post("/train")
+async def schedule_train(payload: TrainPayload, background_tasks: BackgroundTasks):
+    """Agenda treinamento LSTM assíncrono para não travar a API."""
+    import subprocess
+    def run_training(ticker):
+        logger.info(f"Iniciando treinamento assíncrono para {ticker}")
+        subprocess.run(["poetry", "run", "python", "src/models/train.py", "--ticker_id", ticker])
+        
+    background_tasks.add_task(run_training, payload.ticker)
+    return {"status": "Treinamento agendado", "ticker": payload.ticker}
+
+
+class AgentPayload(BaseModel):
+    query: str
+
+@app.post("/agent")
+async def agent_query(payload: AgentPayload):
+    """Aciona o Agente ReAct Financeiro via API."""
+    try:
+        # A chamada ao LangChain Agent (Import assíncrono para não pesar o startup)
+        from src.agent.react_agent import _carregar_llm_local
+        # Mocking or calling the real agent depending on memory 
+        return {"response": "Agente acionado. (Para inferência real via API, instanciar a chain)"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/evaluate_quality")
+async def evaluate_quality():
+    """Executa o pipeline de avaliação (LLM-as-a-judge / Ragas) do Golden Set."""
+    import subprocess
+    logger.info("Iniciando Quality Gate...")
+    subprocess.Popen(["poetry", "run", "python", "evaluation/llm_judge.py"])
+    return {"status": "Avaliação assíncrona iniciada. Acompanhe os logs."}

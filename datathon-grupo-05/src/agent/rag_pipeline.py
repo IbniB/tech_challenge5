@@ -1,10 +1,10 @@
 """Pipeline RAG — Construção e Consulta Incremental do Vector Store (GAP 03).
 
-Constrói um índice FAISS a partir de documentos de conformidade corporativa
+Constrói um índice ChromaDB a partir de documentos de conformidade corporativa
 e expõe uma função de consulta semântica para o Agente ReAct.
 
 Princípios de design (GAP 03 — Anti-Full-Flush):
-    - O índice é persistido em disco após a primeira construção.
+    - O índice é persistido em disco via Chroma SQLite nativo.
     - Atualizações usam upsert por hash de conteúdo: apenas documentos
       novos ou modificados são re-embeddados. O store nunca fica vazio.
     - Se o índice já existir, é carregado sem re-embedding.
@@ -23,9 +23,10 @@ import json
 import logging
 import os
 from pathlib import Path
+import shutil
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import FAISS
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ logging.basicConfig(
 
 # ─── Caminhos ───────────────────────────────────────────────────────────────────
 COMPLIANCE_DIR  = Path("data/compliance")
-VECTORSTORE_DIR = Path("data/vectorstore/faiss_index")
+VECTORSTORE_DIR = Path("data/vectorstore/chroma_index")
 HASH_REGISTRY   = Path("data/vectorstore/doc_hashes.json")
 
 # ─── Configurações de Chunking ──────────────────────────────────────────────────
@@ -84,16 +85,11 @@ def _carregar_documentos_compliance() -> list[dict]:
 
 
 # Modelo de embedding local — sem custo, sem API key.
-# all-MiniLM-L6-v2: 22M params, bom para buscas semânticas em textos técnicos.
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 def _embeddings() -> HuggingFaceEmbeddings:
-    """Instancia o modelo de embeddings local via sentence-transformers.
-    
-    Sem necessidade de API key. Modelo baixado automaticamente do HuggingFace Hub
-    na primeira execução e armazenado em cache local.
-    """
+    """Instancia o modelo de embeddings local via sentence-transformers."""
     return HuggingFaceEmbeddings(
         model_name=EMBEDDING_MODEL,
         model_kwargs={"device": "cpu"},
@@ -101,18 +97,8 @@ def _embeddings() -> HuggingFaceEmbeddings:
     )
 
 
-def construir_ou_atualizar_indice(forcar_rebuild: bool = False) -> FAISS:
-    """Constrói o índice FAISS ou atualiza incrementalmente (upsert por hash).
-
-    GAP 03: documentos não modificados não são re-embeddados.
-    O índice existente nunca é deletado antes do novo estar pronto.
-
-    Args:
-        forcar_rebuild: Se True, reconstrói o índice do zero.
-
-    Returns:
-        Instância do FAISS vectorstore carregada.
-    """
+def construir_ou_atualizar_indice(forcar_rebuild: bool = False) -> Chroma:
+    """Constrói o índice Chroma ou atualiza incrementalmente (upsert por hash)."""
     embedder = _embeddings()
     documentos = _carregar_documentos_compliance()
 
@@ -127,13 +113,13 @@ def construir_ou_atualizar_indice(forcar_rebuild: bool = False) -> FAISS:
         if doc["nome"] not in hashes_salvos or hashes_salvos[doc["nome"]] != doc["hash"]
     ]
 
+    if forcar_rebuild and VECTORSTORE_DIR.exists():
+        logger.info("Apagando índice existente para rebuild...")
+        shutil.rmtree(VECTORSTORE_DIR, ignore_errors=True)
+
     if not novos_docs and VECTORSTORE_DIR.exists() and not forcar_rebuild:
-        logger.info("Todos os documentos já estão indexados. Carregando índice existente.")
-        return FAISS.load_local(
-            str(VECTORSTORE_DIR),
-            embedder,
-            allow_dangerous_deserialization=True,
-        )
+        logger.info("Todos os documentos já estão indexados. Carregando índice existente ChromaDB.")
+        return Chroma(persist_directory=str(VECTORSTORE_DIR), embedding_function=embedder)
 
     logger.info("%d documento(s) novo(s) ou modificado(s) para indexar.", len(novos_docs))
 
@@ -146,40 +132,25 @@ def construir_ou_atualizar_indice(forcar_rebuild: bool = False) -> FAISS:
 
     chunks_texto = []
     chunks_metadata = []
+    chunk_ids = []
     for doc in novos_docs:
         pedacos = splitter.split_text(doc["conteudo"])
         for i, pedaco in enumerate(pedacos):
             chunks_texto.append(pedaco)
             chunks_metadata.append({"source": doc["nome"], "chunk": i})
+            chunk_ids.append(f"{doc['nome']}_chunk_{i}")
 
     logger.info("Total de chunks para embedding: %d", len(chunks_texto))
 
-    if VECTORSTORE_DIR.exists() and not forcar_rebuild:
-        # Upsert incremental: carrega índice existente e adiciona novos chunks
-        vectorstore = FAISS.load_local(
-            str(VECTORSTORE_DIR),
-            embedder,
-            allow_dangerous_deserialization=True,
+    if chunks_texto:
+        vectorstore = Chroma(
+            persist_directory=str(VECTORSTORE_DIR),
+            embedding_function=embedder
         )
-        vectorstore.add_texts(chunks_texto, metadatas=chunks_metadata)
-        logger.info("Índice atualizado incrementalmente (upsert).")
+        vectorstore.add_texts(chunks_texto, metadatas=chunks_metadata, ids=chunk_ids)
+        logger.info("Índice atualizado no ChromaDB.")
     else:
-        # Primeira construção ou rebuild forçado
-        from langchain.schema import Document
-        docs_langchain = [
-            Document(page_content=t, metadata=m)
-            for t, m in zip(chunks_texto, chunks_metadata)
-        ]
-        vectorstore = FAISS.from_documents(docs_langchain, embedder)
-        logger.info("Índice FAISS construído do zero.")
-
-    # Persiste o índice (atômico: salva em tmp e renomeia — GAP 03)
-    tmp_dir = Path("data/vectorstore/.tmp_faiss_index")
-    vectorstore.save_local(str(tmp_dir))
-    if VECTORSTORE_DIR.exists():
-        import shutil
-        shutil.rmtree(VECTORSTORE_DIR)
-    tmp_dir.rename(VECTORSTORE_DIR)
+        vectorstore = Chroma(persist_directory=str(VECTORSTORE_DIR), embedding_function=embedder)
 
     # Atualiza o registro de hashes
     hashes_atualizados = dict(hashes_salvos)
@@ -192,37 +163,25 @@ def construir_ou_atualizar_indice(forcar_rebuild: bool = False) -> FAISS:
 
 
 # ─── Singleton do vectorstore (evita re-carregar a cada chamada do agente) ──────
-_vectorstore: FAISS | None = None
+_vectorstore: Chroma | None = None
 
 
-def _get_vectorstore() -> FAISS:
+def _get_vectorstore() -> Chroma:
     """Retorna o vectorstore carregado, inicializando se necessário."""
     global _vectorstore
     if _vectorstore is None:
         embedder = _embeddings()
         if VECTORSTORE_DIR.exists():
-            _vectorstore = FAISS.load_local(
-                str(VECTORSTORE_DIR),
-                embedder,
-                allow_dangerous_deserialization=True,
-            )
-            logger.info("Vectorstore carregado do disco.")
+            _vectorstore = Chroma(persist_directory=str(VECTORSTORE_DIR), embedding_function=embedder)
+            logger.info("Vectorstore Chroma carregado do disco.")
         else:
-            logger.info("Índice não encontrado. Construindo pela primeira vez...")
+            logger.info("Índice Chroma não encontrado. Construindo pela primeira vez...")
             _vectorstore = construir_ou_atualizar_indice()
     return _vectorstore
 
 
 def consultar_rag(query: str, k: int = 3) -> str:
-    """Consulta semântica no vectorstore de compliance.
-
-    Args:
-        query: Pergunta ou termo a buscar nos documentos corporativos.
-        k: Número de chunks mais relevantes a retornar.
-
-    Returns:
-        String com os trechos mais relevantes encontrados.
-    """
+    """Consulta semântica no vectorstore de compliance."""
     try:
         vs = _get_vectorstore()
         resultados = vs.similarity_search(query, k=k)
@@ -245,7 +204,7 @@ def consultar_rag(query: str, k: int = 3) -> str:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Pipeline RAG — Índice de Compliance")
+    parser = argparse.ArgumentParser(description="Pipeline RAG — Índice de Compliance (ChromaDB)")
     parser.add_argument("--rebuild", action="store_true",
                         help="Força reconstrução completa do índice")
     args = parser.parse_args()

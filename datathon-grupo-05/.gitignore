@@ -29,3 +29,7 @@ notebooks/.ipynb_checkpoints/
 .env
 .env.*
 !.env.example
+
+# Caches locais (LLM e RAG)
+data/.model_cache/
+data/vectorstore/

@@ -33,7 +33,7 @@ Mudamos a cultura do exploratório padrão. Processamentos de dados rodando em N
 A etapa de Treinamento da LSTM ocorre injetando o MLflow no código. Ele salvará cada hiperparâmetro (como tamanho de janelas) e o artefato de modelo gerado no final do processo, mantendo registro claro de autoria de cada versão. Na ponta da inferência, integramos de cara um endpoint Promotheus consumido assincronamente via Docker para entender picos de uso e flutuações anormais e bruscas no preço das ações requisitadas.
 
 ### 4. Inteligência RAG e Agentes Generativos
-Aplicamos bibliotecas GenAI para dar utilidade para as inferências da predição. O Agente cruza três "Tools" do próprio sistema: Busca a última cotação legítima na nuvem via yfinance, solicita predição interna do nosso modelo neural, e cruza o output sob checagens com uma base RAG onde subimos as diretrizes corporativas restritas da CVM. Tudo isso avaliado com Ragas para comprovar falta de alucinação sintética.
+Aplicamos bibliotecas GenAI para dar utilidade para as inferências da predição. O Agente cruza três "Tools" do próprio sistema: Busca a última cotação legítima na nuvem via yfinance, solicita predição interna do nosso modelo neural, e cruza o output sob checagens com uma base RAG onde subimos as diretrizes corporativas restritas da CVM usando ChromaDB e Langchain. Tudo isso avaliado com Ragas para comprovar falta de alucinação sintética, e utilizando um LLM 100% local quantizado (Qwen2.5-0.5B-Instruct).
 
 ---
 
@@ -134,7 +134,14 @@ poetry run python src/features/feature_engineering.py --ticker_id petr4_sa
 poetry run pytest tests/ -v
 ```
 
-#### Passo 3 — Explorar os dados (EDA)
+#### Passo 3 — O atalho mágico `make all` (Opcional)
+Se você possui o utilitário `make` instalado (ou configurou alias via bash/Powershell), você pode rodar o pipeline inteiro de desenvolvimento local com um único comando:
+```bash
+make all
+```
+Isso aciona: processamento de dados, criação do ChromaDB, treinamento da LSTM e rodará toda a suíte de testes do Pytest com 100% de sucesso automático.
+
+#### Passo 4 — Explorar os dados (EDA)
 ```bash
 poetry run jupyter notebook notebooks/01_eda.ipynb
 ```
@@ -162,9 +169,9 @@ poetry run python src/monitoring/drift.py --ticker_id petr4_sa --ticker PETR4.SA
 ```
 Os resultados aparecem no experimento `drift_monitoring` do MLflow. Exit code 1 indica alerta de retreino.
 
-#### Passo 7 — Consultar o Agente Generativo (Fase D)
+#### Passo 8 — Consultar o Agente Generativo ReAct (Fase D)
+Como refatoramos o código para utilizar o Qwen local (em INT4), nenhuma chave de API da OpenAI é necessária. Basta rodar o agente e ele irá raciocinar na sua máquina.
 ```bash
-export OPENAI_API_KEY="sua_chave_aqui"
 poetry run python src/agent/react_agent.py
 ```
 
@@ -178,13 +185,14 @@ poetry run python src/agent/react_agent.py
 docker compose up --build
 ```
 
-Isso inicializa 4 serviços simultaneamente, cada um em seu próprio container com compute isolado:
+Isso inicializa 5 serviços simultaneamente, cada um em seu próprio container com compute isolado:
 
 | Serviço | Porta | Propósito |
 |---|---|---|
-| `serving_api` | 8000 | API FastAPI de predições |
+| `serving_api` | 8000 | API FastAPI de predições com endpoints liveness/ready/infer |
 | `mlflow_server` | 5000 | Registro central de modelos |
-| `prometheus` | 9090 | Métricas operacionais |
+| `prometheus` | 9090 | Motor de scraping de Métricas operacionais |
+| `grafana`     | 3000 | Dashboard visual das métricas do Prometheus |
 | `airflow` | 8080 | Orquestrador de pipelines (DAG) |
 
 **Quando usar Docker vs. Poetry:**

@@ -142,7 +142,7 @@ def process_and_window_data(ticker_id: str, window_size: int = DEFAULT_WINDOW_SI
         destino = PROCESSED_DATA_PATH / nome
         tmp = PROCESSED_DATA_PATH / f".tmp_{nome}"
         np.save(tmp, dado)
-        tmp.rename(destino)  # rename é atômico
+        tmp.replace(destino)  # replace é atômico no Windows
         logger.info("Artefato persistido: %s (shape=%s)", nome, dado.shape)
 
     joblib.dump(feature_scaler, PROCESSED_DATA_PATH / f"{ticker_id}_feature_scaler.pkl")
