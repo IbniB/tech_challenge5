@@ -57,6 +57,24 @@ Séries de preços financeiros são intrinsecamente ruidosas. Qualquer modelo qu
 
 O MLflow registra as curvas de `val_rmse`, `val_mae` e `val_mape` por epoch justamente para que essa análise seja auditável e rastreável. Não basta apresentar o número final — a trajetória de aprendizagem do modelo já é evidência de qualidade de engenharia.
 
+---
+
+## Métricas no MLflow — Escolhas e Justificativas
+
+O MLflow rastreia cada run do experimento `stock_prediction_lstm` com as seguintes métricas. Todas foram selecionadas por critério de negócio, não apenas matemático.
+
+| Métrica | O que mede | Por que escolhemos |
+|---|---|---|
+| **RMSE** (Root Mean Squared Error) | Erro quadrático médio na escala real do ativo (R$) | Penaliza erros grandes de forma proporcional ao quadrado — crítico em finanças onde um erro de R$ 5,00 num ativo de R$ 35,00 é muito mais grave que 5 erros de R$ 1,00. Interpretável diretamente: "o modelo erra em média R$ X por predição." |
+| **MAE** (Mean Absolute Error) | Erro médio absoluto em R$ | Mais robusto a outliers que o RMSE. Útil para comunicar à mesa de operações sem distorção estatística: "em média erramos R$ X por pregão". Complementar ao RMSE para detectar se os erros grandes inflam artificialmente o custo. |
+| **MAPE** (Mean Absolute Percentage Error) | Erro percentual médio em relação ao preço real | Linguagem de negócio: percentual é comparável entre ativos de preços distintos (PETR4 ≈ R$ 35 vs NVDC34 ≈ R$ 50). Critério de aceite: MAPE ≤ 8% é considerado competitivo para previsão de curto prazo em ativos voláteis. Acima de 12% dispara retreino automático. |
+| **σ-tolerance** | % de predições dentro de ±0,5 desvios-padrão do preço real observado | Métrica proprietária criada para o contexto de tesouraria. Não mede apenas o erro médio — mede a *confiabilidade distribucional*. Uma mesa de operações precisa saber se o modelo erra dentro de uma faixa aceitável na maioria dos pregões, não só qual o erro médio. Meta: ≥ 70% das predições dentro da faixa σ. |
+| **val_loss (MSE)** | Loss de validação por epoch | Controle de overfitting: se `val_loss` para de cair mas `train_loss` continua caindo, o modelo está memorizando o treino. A curva por epoch no MLflow torna o diagnóstico visual e auditável. |
+
+### Por que não usamos apenas MSE?
+
+MSE é útil durante o treino (é diferenciável e estável para backpropagation), mas é ininterpretável para a banca e para a equipe de risco: "o erro quadrático médio foi 2,3" não comunica nada sem contexto. Já "o MAPE foi 4,7%" ou "o modelo errou em média R$ 1,65 por pregão" é defendível em qualquer reunião de governança.
+
 ### Champion-Challenger como Próximo Passo
 
 A LSTM é o nosso Champion. O challenger natural a avaliar em iteração futura é a **GRU (Gated Recurrent Unit)**, que tem arquitetura mais simples (menos parâmetros), tende a treinar mais rápido e em muitos benchmarks financeiros empata ou supera a LSTM em séries de médio prazo. Essa comparação está planejada como melhoria incremental no roadmap do projeto.

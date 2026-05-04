@@ -16,6 +16,7 @@ Integração com Airflow:
 Uso:
     poetry run python src/monitoring/drift.py --ticker_id petr4_sa --ticker PETR4.SA
 """
+import os
 import sys
 import argparse
 import logging
@@ -215,7 +216,7 @@ def detectar_drift(ticker_id: str, ticker: str) -> dict:
     Returns:
         Dicionário com métricas e status de alerta.
     """
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"))
     mlflow.set_experiment("drift_monitoring")
 
     run_name = f"drift_{ticker_id}_{datetime.today().strftime('%Y%m%d')}"
