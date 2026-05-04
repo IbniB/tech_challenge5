@@ -57,10 +57,11 @@ services:
   # Não executa treino, não tem acesso à API.
   mlflow_server:
     image: python:3.11-slim
+    hostname: mlflow_server
     container_name: datathon_mlflow
     command: >
       bash -c "pip install mlflow && mlflow server
-      --host 0.0.0.0 --port 5000
+      --host mlflow_server --port 5000
       --backend-store-uri sqlite:///mlflow.db
       --default-artifact-root /mlflow/artifacts"
     ports:
