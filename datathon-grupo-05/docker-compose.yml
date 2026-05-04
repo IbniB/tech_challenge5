@@ -74,10 +74,12 @@ services:
   # LocalExecutor: cada task roda em processo separado sem memória compartilhada.
   # Sem Airflow, cada etapa precisaria de intervenção manual — ponto único de falha.
   airflow:
-    image: apache/airflow:2.9.0
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
     container_name: datathon_airflow
     environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
       - AIRFLOW__WEBSERVER__SECRET_KEY=datathon-grupo-05-secret
@@ -85,17 +87,12 @@ services:
       - ./dags:/opt/airflow/dags           # DAGs declarativas do pipeline
       - ./src:/opt/airflow/project/src     # Código de produção (read-only)
       - ./data:/opt/airflow/project/data   # Artefatos compartilhados via disco
+      - ./pyproject.toml:/opt/airflow/project/pyproject.toml
+      - ./poetry.lock:/opt/airflow/project/poetry.lock
       - airflow_data:/opt/airflow
     ports:
       - "8080:8080"
-    command: >
-      bash -c "airflow db init &&
-               airflow users create
-                 --username admin --password admin
-                 --firstname Grupo --lastname 05
-                 --role Admin --email grupo05@datathon.com &&
-               airflow scheduler &
-               airflow webserver"
+    command: airflow standalone
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
