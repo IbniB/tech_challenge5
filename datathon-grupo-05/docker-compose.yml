@@ -92,7 +92,7 @@ services:
       - airflow_data:/opt/airflow
     ports:
       - "8080:8080"
-    command: airflow standalone
+    command: bash -c "rm -f /opt/airflow/airflow-webserver.pid && airflow standalone"
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
