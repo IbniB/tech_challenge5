@@ -1,0 +1,5 @@
+outs:
+- md5: 77f880db8b619aa4aacb6801a0d124ae
+  size: 121235
+  hash: md5
+  path: nvdc34_sa_raw.csv

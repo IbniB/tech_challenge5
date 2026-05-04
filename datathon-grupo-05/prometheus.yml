@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 5s
+
+scrape_configs:
+  # Regra para engolir os Logs criados pela FastAPI no `/metrics`
+  - job_name: 'fastapi_lstm_serving'
+    static_configs:
+      - targets: ['serving_api:8000'] 
+        labels:
+          environment: 'production'
+          service: 'ml_lstm'

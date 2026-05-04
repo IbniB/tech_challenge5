@@ -1,0 +1,101 @@
+version: '3.8'
+
+# ─── Volumes Compartilhados ────────────────────────────────────────────────────
+# Os volumes garantem que artefatos produzidos por um serviço
+# possam ser consumidos pelo próximo sem copiar dados entre containers.
+volumes:
+  mlflow_data:
+  airflow_data:
+  prometheus_data:
+
+services:
+
+  # ─── API de Serving (FastAPI + Prometheus) ────────────────────────────────────
+  # Compute isolado: não conhece o Airflow, não conhece o treino.
+  # Consome apenas pesos do MLflow Registry via variável de ambiente.
+  serving_api:
+    build: .
+    container_name: datathon_serving_api
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_ENVIRONMENT=production
+      - MLFLOW_TRACKING_URI=http://mlflow_server:5000
+    volumes:
+      - ./data:/app/data
+    restart: always
+
+  # ─── Prometheus (Observabilidade Operacional) ─────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: datathon_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    depends_on:
+      - serving_api
+    restart: always
+
+  # ─── Grafana (Dashboards e Alertas) ───────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: datathon_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - prometheus
+    restart: always
+
+  # ─── MLflow Server (Registro Central de Modelos) ──────────────────────────────
+  # Compute isolado: apenas armazena e serve artefatos.
+  # Não executa treino, não tem acesso à API.
+  mlflow_server:
+    image: python:3.11-slim
+    container_name: datathon_mlflow
+    command: >
+      bash -c "pip install mlflow && mlflow server
+      --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:///mlflow.db
+      --default-artifact-root /mlflow/artifacts"
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    restart: always
+
+  # ─── Airflow (Orquestrador de Pipeline — GAP 02 Anti-SPOF) ───────────────────
+  # Cada DAG é um pipeline isolado por ativo financeiro.
+  # LocalExecutor: cada task roda em processo separado sem memória compartilhada.
+  # Sem Airflow, cada etapa precisaria de intervenção manual — ponto único de falha.
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.airflow
+    container_name: datathon_airflow
+    environment:
+      - AIRFLOW__CORE__EXECUTOR=SequentialExecutor
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+      - AIRFLOW__WEBSERVER__SECRET_KEY=datathon-grupo-05-secret
+    volumes:
+      - ./dags:/opt/airflow/dags           # DAGs declarativas do pipeline
+      - ./src:/opt/airflow/project/src     # Código de produção (read-only)
+      - ./data:/opt/airflow/project/data   # Artefatos compartilhados via disco
+      - ./pyproject.toml:/opt/airflow/project/pyproject.toml
+      - ./poetry.lock:/opt/airflow/project/poetry.lock
+      - airflow_data:/opt/airflow
+    ports:
+      - "8080:8080"
+    command: airflow standalone
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

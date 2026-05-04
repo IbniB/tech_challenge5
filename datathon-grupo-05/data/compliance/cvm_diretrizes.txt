@@ -1,0 +1,80 @@
+DIRETRIZES DE CONFORMIDADE — CORRETORA MESA DE OPERAÇÕES
+Versão: 2.1 | Vigência: Janeiro 2024 | Autoridade: Comitê de Risco e CVM
+
+===================================================================
+CAPÍTULO 1 — LIMITES DE RECOMENDAÇÃO AUTOMATIZADA
+===================================================================
+
+DIRETRIZ 1.1 — LIMIAR DE RECOMENDAÇÃO SEM APROVAÇÃO HUMANA
+Sistemas automatizados de análise preditiva estão autorizados a emitir
+sinalizações de tendência para ativos com preço de fechamento inferior a
+R$ 30,00 por ação. Recomendações que impliquem posições em ativos acima
+deste valor requerem revisão e aprovação do gestor responsável antes de
+qualquer comunicação ao cliente.
+
+DIRETRIZ 1.2 — SUSPENSÃO AUTOMÁTICA DE ORDENS
+Se o modelo preditivo interno sinalizar variação superior a 2% (positiva
+ou negativa) no preço de fechamento de qualquer papel, todas as ordens
+automáticas relacionadas a esse ativo devem ser suspensas até revisão
+manual do operador de risco. Esta diretriz aplica-se a qualquer sistema
+de recomendação, incluindo modelos de Machine Learning e Deep Learning.
+
+DIRETRIZ 1.3 — AVISO OBRIGATÓRIO AO CLIENTE
+Toda recomendação emitida pelo sistema, independentemente do resultado
+preditivo, deve ser acompanhada da frase oficial da CVM:
+"Investimentos envolvem riscos e podem resultar em perdas. Invista de
+acordo com seu perfil e as restrições regulatórias da CVM."
+
+===================================================================
+CAPÍTULO 2 — GOVERNANÇA DE MODELOS PREDITIVOS
+===================================================================
+
+DIRETRIZ 2.1 — RASTREABILIDADE OBRIGATÓRIA
+Nenhum modelo de Machine Learning pode operar em produção sem registro
+completo de: versão do modelo, data de treinamento, conjunto de dados
+utilizado (hash DVC), e métricas de validação (RMSE, MAE, MAPE). Esta
+informação deve estar disponível no MLflow Registry.
+
+DIRETRIZ 2.2 — VALIDADE DO MODELO
+Modelos treinados há mais de 90 dias sem nova validação são considerados
+expirados e devem ser retreinados. O prazo começa a contar da última
+data de treinamento registrada no MLflow.
+
+DIRETRIZ 2.3 — PROIBIÇÃO DE MODELOS ÓRFÃOS
+É expressamente proibido o uso de pesos de modelos sem rastreabilidade
+de origem. Qualquer arquivo de modelo sem registro MLflow correspondente
+deve ser descartado e o pipeline de treino deve ser reexecutado.
+
+===================================================================
+CAPÍTULO 3 — ATIVOS MONITORADOS
+===================================================================
+
+DIRETRIZ 3.1 — PETR4.SA (Petrobras PN)
+Ativo de alta liquidez. Modelo LSTM autorizado para previsão de
+fechamento em horizonte de 1 dia útil. Exposição máxima por cliente:
+R$ 100.000,00. Variações > 3% requerem intervenção humana obrigatória.
+
+DIRETRIZ 3.2 — NVDC34.SA (NVIDIA BDR)
+Ativo lastreado em ADR americano. Sujeito a variação cambial (USD/BRL).
+O modelo deve considerar que fechamentos de sexta-feira americana podem
+divergir do preço de abertura na B3 na segunda-feira seguinte. Exposição
+máxima por cliente: R$ 50.000,00.
+
+DIRETRIZ 3.3 — CONTROLE DE CONCENTRAÇÃO
+Nenhum cliente deve ter mais de 40% do portfólio concentrado em um único
+ativo monitorado pelo sistema preditivo. O agente deve alertar o operador
+se detectar concentração acima deste limite em qualquer consulta.
+
+===================================================================
+CAPÍTULO 4 — PRIVACIDADE E LGPD
+===================================================================
+
+DIRETRIZ 4.1 — DADOS PESSOAIS
+O sistema não deve armazenar, processar ou transmitir dados pessoais de
+clientes (CPF, nome, endereço) sem consentimento explícito registrado.
+Logs de inferência devem conter apenas o ID de sessão anonimizado.
+
+DIRETRIZ 4.2 — DIREITO AO ESQUECIMENTO
+Mediante solicitação, todos os dados de um cliente devem ser removidos
+dos sistemas em até 15 dias úteis, incluindo histórico de consultas ao
+agente preditivo.

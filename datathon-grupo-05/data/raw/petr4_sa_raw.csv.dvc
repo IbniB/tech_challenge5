@@ -1,0 +1,5 @@
+outs:
+- md5: f085edd0540f3ceeb44084006e311a3e
+  size: 153180
+  hash: md5
+  path: petr4_sa_raw.csv
