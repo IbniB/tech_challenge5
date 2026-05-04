@@ -71,11 +71,11 @@ def predict_lstm_price(ticker: str) -> str:
         scaled_data = scaler.transform(features)
         
         # Envia o payload no formato correto: batch=1, timesteps=60, features=12
-        payload = {"data": [scaled_data.tolist()]}
+        payload = {"data": [scaled_data.tolist()], "asset_id": ticker}
 
         # Chama a API de serving
         base_url = os.environ.get("PREDICT_API_URL", "http://localhost:8000")
-        response = requests.post(f"{base_url}/predict", json=payload, timeout=10)
+        response = requests.post(f"{base_url}/infer", json=payload, timeout=10)
 
         if response.status_code == 200:
             data = response.json()
