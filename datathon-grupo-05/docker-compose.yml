@@ -59,9 +59,11 @@ services:
     image: python:3.11-slim
     hostname: mlflow_server
     container_name: datathon_mlflow
+    environment:
+      - MLFLOW_SERVER_ALLOWED_HOSTS=mlflow_server,mlflow_server:5000,localhost,localhost:5000,0.0.0.0,0.0.0.0:5000
     command: >
       bash -c "pip install mlflow && mlflow server
-      --host mlflow_server --port 5000
+      --host 0.0.0.0 --port 5000
       --backend-store-uri sqlite:///mlflow.db
       --default-artifact-root /mlflow/artifacts"
     ports:
