@@ -30,3 +30,33 @@ def test_predict_validation_error():
     }
     response = client.post("/infer", json=payload)
     assert response.status_code == 422 # Unprocessable Entity (Rejeição Pydantic correta)
+
+def test_liveness_probe():
+    """Liveness probe deve retornar alive independentemente do estado do modelo."""
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json()["status"] == "alive"
+
+def test_startup_probe_no_model():
+    """Startup probe retorna 503 quando modelo não está carregado."""
+    response = client.get("/startup")
+    assert response.status_code == 503
+
+def test_reload_model_no_model():
+    """Reload endpoint retorna 503 quando MLflow não tem modelo disponível."""
+    response = client.post("/reload-model")
+    assert response.status_code == 503
+
+def test_agent_endpoint():
+    """Endpoint /agent deve responder 200 com resposta placeholder."""
+    payload = {"query": "Qual o risco de PETR4.SA?"}
+    response = client.post("/agent", json=payload)
+    assert response.status_code == 200
+    assert "response" in response.json()
+
+def test_train_endpoint():
+    """Endpoint /train deve agendar treinamento e retornar 200."""
+    payload = {"ticker": "PETR4.SA"}
+    response = client.post("/train", json=payload)
+    assert response.status_code == 200
+    assert response.json()["status"] == "Treinamento agendado"

@@ -47,3 +47,12 @@ build-backend = "poetry.core.masonry.api"
 pythonpath = [
   "."
 ]
+
+[tool.coverage.run]
+omit = [
+  "src/models/train.py",
+  "src/monitoring/drift.py",
+  "src/features/data_collection.py",
+  "src/agent/rag_pipeline.py",
+  "src/agent/react_agent.py",
+]

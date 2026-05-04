@@ -83,6 +83,7 @@ services:
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
       - AIRFLOW__WEBSERVER__SECRET_KEY=datathon-grupo-05-secret
+      - MLFLOW_TRACKING_URI=http://mlflow_server:5000
     volumes:
       - ./dags:/opt/airflow/dags           # DAGs declarativas do pipeline
       - ./src:/opt/airflow/project/src     # Código de produção (read-only)
