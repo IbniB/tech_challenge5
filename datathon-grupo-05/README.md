@@ -95,12 +95,37 @@ Quando qualquer um dos alertas acima é ativado, o processo não é simplesmente
 
 Esse processo elimina o risco de promover um modelo pior por conta de overfitting no conjunto de validação. E mais importante: cria um rastro auditável de cada transição de versão em produção.
 
-### O que já está implementado e o que é próximo passo
+### O que está implementado
 
-Atualmente o Prometheus monitora latência e volume de requisições na API de serving. A próxima camada — o cálculo de PSI e MAPE rolling em produção — está mapeada como entrega incremental usando Evidently, que já consta no `pyproject.toml` como dependência instalada.
+Todas as três camadas de monitoramento estão operacionais em `src/monitoring/drift.py`:
+- **PSI** sobre a distribuição dos preços de entrada (Data Drift)
+- **MAPE rolling de 7 dias** comparando predições com fechamento real via `yfinance` (Performance Drift)
+- **Análise de resíduos** para detecção de viés sistemático (Concept Drift)
+
+Os alertas são integrados ao Prometheus via contadores na API de serving (`DRIFT_WARNINGS`) e registrados no MLflow no experimento `drift_monitoring`.
 
 ---
 
+
+## CI/CD — Pipeline de Integração Contínua
+
+O repositório possui um pipeline GitHub Actions configurado em `.github/workflows/ci.yml` que executa automaticamente em todo push para `dev` e em Pull Requests para `hml` e `main`.
+
+### Jobs em sequência
+
+```
+Lint & Code Formatting → Unit Tests & Coverage → Docker Build Verification
+```
+
+| Job | Ferramenta | Critério de aceite |
+|---|---|---|
+| **Lint** | `ruff check .` | Zero erros de estilo ou imports não utilizados |
+| **Tests** | `pytest --cov=src --cov-fail-under=60` | Cobertura mínima de 60% e todos os testes passando |
+| **Docker Build** | `docker compose build serving_api airflow` | Imagens constroem sem erro |
+
+O cache do Poetry é compartilhado entre jobs via `actions/cache`, evitando download completo das dependências a cada execução.
+
+---
 
 ## Como Executar o Projeto
 
@@ -147,7 +172,7 @@ poetry run jupyter notebook notebooks/01_eda.ipynb
 ```
 O notebook contém análise de autocorrelação, estacionariedade, volatilidade e distribuição dos ativos. É exploratório — nenhum código aqui é trigger de produção.
 
-#### Passo 4 — Treinar o modelo LSTM (Fase B)
+#### Passo 5 — Treinar o modelo LSTM (Fase B)
 ```bash
 # PETR4.SA
 poetry run python src/models/train.py --ticker_id petr4_sa
@@ -191,9 +216,13 @@ Isso inicializa 5 serviços simultaneamente, cada um em seu próprio container c
 |---|---|---|
 | `serving_api` | 8000 | API FastAPI de predições com endpoints liveness/ready/infer |
 | `mlflow_server` | 5000 | Registro central de modelos |
-| `prometheus` | 9090 | Motor de scraping de Métricas operacionais |
+| `prometheus` | 9090 | Motor de scraping de métricas operacionais |
 | `grafana`     | 3000 | Dashboard visual das métricas do Prometheus |
 | `airflow` | 8080 | Orquestrador de pipelines (DAG) |
+
+**Arquitetura de dependências Docker:**
+
+O container `serving_api` instala o stack completo (PyTorch, LangChain, ChromaDB, etc.) via Poetry. O container `airflow` usa um ambiente separado e leve (`requirements-airflow.txt`) com apenas as dependências do pipeline de dados — sem CUDA, sem stack LLM. Isso reduz o tempo de build do Airflow de ~30 minutos para ~3 minutos e evita conflitos de dependências entre os ambientes.
 
 **Quando usar Docker vs. Poetry:**
 
