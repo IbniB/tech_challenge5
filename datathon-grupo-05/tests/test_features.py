@@ -1,6 +1,5 @@
 import pytest
 import numpy as np
-import pandas as pd
 import pandera as pa
 
 from src.features.feature_engineering import FINANCIAL_SCHEMA, create_sequences

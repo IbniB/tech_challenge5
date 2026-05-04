@@ -17,7 +17,6 @@ Uso:
     poetry run python src/monitoring/drift.py --ticker_id petr4_sa --ticker PETR4.SA
 """
 import sys
-import os
 import argparse
 import logging
 import warnings

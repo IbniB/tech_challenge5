@@ -79,15 +79,18 @@ def evaluate_with_local_judge(pares: list[dict], respostas_geradas: dict) -> lis
             # Regex Fallback: extrai os números diretamente do texto truncado
             try:
                 precisao = int(re.search(r'"precisao_tecnica"\s*:\s*(\d)', raw_response).group(1))
-            except: precisao = 0
-            
+            except Exception:
+                precisao = 0
+
             try:
                 relevancia = int(re.search(r'"relevancia"\s*:\s*(\d)', raw_response).group(1))
-            except: relevancia = 0
-                
+            except Exception:
+                relevancia = 0
+
             try:
                 adequacao = int(re.search(r'"adequacao_negocio"\s*:\s*(\d)', raw_response).group(1))
-            except: adequacao = 0
+            except Exception:
+                adequacao = 0
                 
             result = {
                 "precisao_tecnica": precisao,
@@ -122,12 +125,12 @@ def main():
     print("\n" + "="*50)
     print("⚖️ RESULTADOS LLM-AS-A-JUDGE (100% LOCAL) ⚖️")
     print("="*50)
-    print(f"Critérios (Escala 1 a 5):")
+    print("Critérios (Escala 1 a 5):")
     print(f"Precisão Técnica   : {avg_precisao:.1f}/5.0")
     print(f"Relevância         : {avg_relevancia:.1f}/5.0")
     print(f"Adequação Negócio  : {avg_adequacao:.1f}/5.0")
     print("="*50)
-    print(f"Salvo em: evaluation/results/llm_judge_results.json")
+    print("Salvo em: evaluation/results/llm_judge_results.json")
 
 if __name__ == "__main__":
     main()

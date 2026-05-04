@@ -15,7 +15,7 @@ import mlflow
 import mlflow.pytorch
 import numpy as np
 import torch
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from prometheus_client import Counter, Histogram, make_asgi_app
 from pydantic import BaseModel, Field
 
@@ -205,12 +205,8 @@ async def startup_probe():
     return {"status": "started"}
 
 
-from pydantic import BaseModel
-
 class TrainPayload(BaseModel):
     ticker: str = "PETR4.SA"
-
-from fastapi import BackgroundTasks
 
 @app.post("/train")
 async def schedule_train(payload: TrainPayload, background_tasks: BackgroundTasks):
@@ -232,8 +228,6 @@ async def agent_query(payload: AgentPayload):
     """Aciona o Agente ReAct Financeiro via API."""
     try:
         # A chamada ao LangChain Agent (Import assíncrono para não pesar o startup)
-        from src.agent.react_agent import _carregar_llm_local
-        # Mocking or calling the real agent depending on memory 
         return {"response": "Agente acionado. (Para inferência real via API, instanciar a chain)"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -32,7 +32,6 @@ def predict_lstm_price(ticker: str) -> str:
         String com a predição de preço normalizado ou mensagem de erro.
     """
     import joblib
-    import numpy as np
     from pathlib import Path
 
     try:
@@ -90,7 +89,7 @@ def predict_lstm_price(ticker: str) -> str:
             )
         elif response.status_code == 503:
             return (
-                f"API de predição indisponível (503): modelo não carregado. "
+                "API de predição indisponível (503): modelo não carregado. "
                 "Verifique se o serviço de serving está rodando e se há modelos no MLflow."
             )
         else:

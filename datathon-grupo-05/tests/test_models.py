@@ -1,5 +1,4 @@
 import torch
-import pytest
 from src.models.baseline_lstm import StockLSTM
 
 def test_stock_lstm_initialization():

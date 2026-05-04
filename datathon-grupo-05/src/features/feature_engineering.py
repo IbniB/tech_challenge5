@@ -1,7 +1,6 @@
 """Módulo de processamento de pipelines de dados para alimentar a rede LSTM obedecendo os DVC inputs."""
 import logging
 import argparse
-import ast
 from pathlib import Path
 
 import numpy as np

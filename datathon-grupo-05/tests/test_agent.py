@@ -1,4 +1,3 @@
-import pytest
 from src.agent.tools import predict_lstm_price
 
 def test_predict_lstm_price_tool():
@@ -11,7 +10,6 @@ def test_predict_lstm_price_tool():
 
 def test_react_agent_structure():
     """Verifica se as políticas de Guardrails / System Prompt estão presentes no cérebro do Agente (via tools)."""
-    from src.agent.react_agent import criar_agente
     # Apenas validamos se o módulo de importação existe e as descrições contêm a política da CVM
     from src.agent.tools import query_compliance_rag
     assert "compliance" in query_compliance_rag.__name__.lower()

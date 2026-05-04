@@ -1,6 +1,5 @@
 import pytest
 import pandas as pd
-import numpy as np
 
 @pytest.fixture
 def sample_raw_data() -> pd.DataFrame:
