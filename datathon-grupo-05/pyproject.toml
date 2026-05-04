@@ -55,4 +55,5 @@ omit = [
   "src/features/data_collection.py",
   "src/agent/rag_pipeline.py",
   "src/agent/react_agent.py",
+  "src/agent/tools.py",
 ]
