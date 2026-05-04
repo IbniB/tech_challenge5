@@ -99,7 +99,7 @@ def train_model(args: argparse.Namespace) -> None:
     Args:
         args: Argumentos CLI com hiperparâmetros e configurações do ativo.
     """
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"))
     mlflow.set_experiment("stock_prediction_lstm")
 
     # Run name derivado dinamicamente do ticker — sem hardcode (corrige bug de PETR4 fixo)
