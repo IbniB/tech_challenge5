@@ -77,7 +77,7 @@ for config in TICKERS:
             task_id="coletar_dados_mercado",
             bash_command=(
                 f"cd {PROJECT_DIR} && "
-                f"python src/features/data_collection.py --ticker {ticker}"
+                f"/ml_project/.venv/bin/python src/features/data_collection.py --ticker {ticker}"
             ),
             doc_md=f"""
             **Coleta de dados de mercado para {ticker}.**
@@ -92,7 +92,7 @@ for config in TICKERS:
             task_id="processar_features",
             bash_command=(
                 f"cd {PROJECT_DIR} && "
-                f"python src/features/feature_engineering.py --ticker_id {ticker_id}"
+                f"/ml_project/.venv/bin/python src/features/feature_engineering.py --ticker_id {ticker_id}"
             ),
             doc_md="""
             **Validação de Schema (Pandera) + MinMaxScaler + janelamento 60d.**
@@ -118,7 +118,7 @@ for config in TICKERS:
             task_id="treinar_modelo_lstm",
             bash_command=(
                 f"cd {PROJECT_DIR} && "
-                f"python src/models/train.py --ticker_id {ticker_id}"
+                f"/ml_project/.venv/bin/python src/models/train.py --ticker_id {ticker_id}"
             ),
             doc_md="""
             **Treinamento LSTM com rastreamento MLflow.**
@@ -133,7 +133,7 @@ for config in TICKERS:
             task_id="detectar_drift",
             bash_command=(
                 f"cd {PROJECT_DIR} && "
-                f"python src/monitoring/drift.py --ticker_id {ticker_id}"
+                f"/ml_project/.venv/bin/python src/monitoring/drift.py --ticker_id {ticker_id}"
             ),
             doc_md="""
             **Detecção de Concept Drift e Data Drift (Evidently + PSI).**

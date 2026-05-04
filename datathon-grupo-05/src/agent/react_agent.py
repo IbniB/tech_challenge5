@@ -95,10 +95,11 @@ def _carregar_llm_local() -> HuggingFacePipeline:
         model=model,
         tokenizer=tokenizer,
         max_new_tokens=MAX_NEW_TOKENS,
+        max_length=None,
         temperature=TEMPERATURE,
         do_sample=True,
         pad_token_id=tokenizer.eos_token_id,
-        return_full_text=False,   # retorna só o texto gerado, não o prompt
+        return_full_text=False,
     )
 
     logger.info("Modelo %s carregado com sucesso.", MODEL_ID)
@@ -157,9 +158,10 @@ def criar_agente():
         llm=llm,
         agent="zero-shot-react-description",
         verbose=True,
-        handle_parsing_errors=True,
+        handle_parsing_errors="Por favor, responda estritamente no formato exigido: Thought, Action, Action Input, ou Final Answer.",
         memory=memory,
-        max_iterations=6,
+        max_iterations=3,
+        early_stopping_method="generate",
     )
 
     logger.info("Agente ReAct inicializado com %d tools.", len(tools))

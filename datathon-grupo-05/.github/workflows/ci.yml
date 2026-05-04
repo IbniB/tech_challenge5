@@ -1,0 +1,65 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - hml
+      - main
+
+jobs:
+  lint:
+    name: Lint & Code Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        run: pip install poetry==1.8.2
+
+      - name: Install Linting Dependencies
+        run: poetry install --only dev --no-root
+
+      - name: Run Ruff (Linter)
+        run: poetry run ruff check .
+
+  test:
+    name: Unit Tests & Coverage
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        run: pip install poetry==1.8.2
+
+      - name: Install Project Dependencies
+        run: poetry install --no-root
+
+      - name: Run Pytest
+        run: poetry run pytest tests/ -v
+
+  build-dry-run:
+    name: Docker Build Verification (Local CD)
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build Docker Images (Dry-Run)
+        run: docker compose build

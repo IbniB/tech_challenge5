@@ -1,31 +1,32 @@
 # Imagem enxuta baseada em Python Oficial (Solução do MLOps Gap: AMBIENTES DEV vs PROD INSTAVEL)
 FROM python:3.11-slim
 
-# Evita o buffering de Python injetando logs diretamente no console (Ideal para Docker/Prometheus Watchdogs)
 ENV PYTHONUNBUFFERED=1
+ENV PIP_DEFAULT_TIMEOUT=120
+ENV PIP_RETRIES=5
+ENV POETRY_INSTALLER_PARALLEL=false
 
 WORKDIR /app
 
-# Garantir utilitários básicos da cloud se necessário 
-RUN apt-get update && apt-get install -y gcc
+RUN apt-get update && apt-get install -y --no-install-recommends gcc && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Instalação do gerenciador corporativo adotado
-RUN pip install poetry
+RUN pip install --no-cache-dir poetry==1.8.2
 
-# Configura o poetry para não criar um virtualenv interno no container, já que o próprio Docker *é* o absoluto encapsulador MLOps
-RUN poetry config virtualenvs.create false
+RUN poetry config virtualenvs.create false && \
+    poetry config installer.max-workers 1 && \
+    poetry config installer.modern-installation false
 
-# Otimização de Layer Docker: Copiamos apenas os manifestos base para abusar do Layer Caching
 COPY pyproject.toml poetry.lock* ./
 
-# Instala a malha inteira validada no lock sem travar em modo interativo
 RUN poetry install --no-root --no-interaction --no-ansi
 
-# Sobe o esqueleto algoritmico (src)
+# chromadb necessário para src/agent/rag_pipeline.py (langchain_chroma)
+# instalado via pip pois ainda não está no poetry.lock
+RUN pip install --no-cache-dir "chromadb>=0.5.0,<0.6.0"
+
 COPY . .
 
-# Expondo o portão oficial
 EXPOSE 8000
 
-# Disparo asíncrono em alta escalabilidade do script do APP
 CMD ["uvicorn", "src.serving.app:app", "--host", "0.0.0.0", "--port", "8000"]
